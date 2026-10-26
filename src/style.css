@@ -1,0 +1,35 @@
+:root { --ui: #fff8ea; --ink: #3b2f3a; --accent: #c4503f; --bg: #f3ead8; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+  font-family: "Pixelify Sans", ui-rounded, "PingFang SC", system-ui, sans-serif; }
+#view { position: fixed; inset: 0; image-rendering: pixelated; }
+#minimap { position: fixed; top: 12px; right: 12px; border: 3px solid var(--ink); border-radius: 10px; box-shadow: 0 4px 0 var(--ink); background: var(--ui); }
+.loading { display: grid; place-items: center; height: 100%; text-align: center; }
+.hud { position: fixed; top: 12px; left: 12px; min-width: 240px; padding: 10px 14px; background: var(--ui); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 4px 0 var(--ink); display: grid; gap: 4px; }
+.hud b { font-size: 18px; display: flex; align-items: center; gap: 6px; }
+.hud span { font-size: 13px; opacity: .8; }
+.bar { height: 8px; border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); margin-right: 6px; vertical-align: -1px; flex: none; }
+.palettes { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+button { font: inherit; color: var(--ink); background: var(--ui); border: 3px solid var(--ink); border-radius: 10px; box-shadow: 0 3px 0 var(--ink); padding: 6px 12px; cursor: pointer; text-align: left; }
+button:hover { transform: translateY(-1px); }
+button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.palettes button.on { background: var(--accent); color: var(--ui); }
+.prompt { position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); padding: 10px 16px; background: var(--ui); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 4px 0 var(--ink); white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+kbd { font: inherit; border: 2px solid var(--ink); border-radius: 5px; padding: 0 5px; margin: 0 4px; }
+.panel { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.card { pointer-events: auto; width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 140px); overflow: auto; padding: 18px; background: var(--ui); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 6px 0 var(--ink); display: grid; gap: 8px; }
+.card h1, .card h2 { margin: 0 0 4px; font-size: 22px; }
+.card p { margin: 0; font-size: 14px; line-height: 1.5; }
+.card .fine { font-size: 11px; opacity: .65; }
+.card button { display: grid; grid-template-columns: auto 1fr; align-items: center; }
+.card button small { grid-column: 2; font-size: 12px; opacity: .7; }
+.list { display: grid; gap: 6px; }
+.card button.resume { background: var(--accent); color: var(--ui); }
+.scale { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 10px; padding: 8px 12px; border: 3px solid var(--ink); border-radius: 10px; font-size: 14px; }
+.scale input { accent-color: var(--accent); width: 100%; }
+.scale small { grid-column: 1 / -1; font-size: 12px; opacity: .7; }
+.hints { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; padding: 4px 12px; border-radius: 8px; background: var(--ui); border: 2px solid var(--ink); white-space: nowrap; }
+@media (max-width: 700px) { #minimap { width: 150px !important; height: auto !important; } .hints { display: none; } .palettes { top: auto; bottom: 12px; } }
+[hidden] { display: none !important; }

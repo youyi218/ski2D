@@ -1,0 +1,80 @@
+# 雪道宽度表 — 改完后运行: .venv/bin/python scripts/build_resort.py
+#
+# width（宽度）可以填：
+#   窄 / 普通 / 宽 / 很宽        （= 25 / 45 / 70 / 100 米）
+#   或直接填数字，单位米，比如 35
+#   留空 = 默认（雪道 45 米，连接道 18 米）
+#
+# from / to（可选）：只改某一段。0 = 雪道起点（上方），1 = 终点（下方），也可以写 30%。
+#   留空 = 整条。同一条雪道可以写多行，分别描述不同段，后写的行覆盖先写的。
+#   例：Bouleaux,宽,,,         整条都宽
+#       Bouleaux,窄,0,30%,     上面 30% 那段窄
+#
+# sector / colour / note 只是方便你看，不影响结果。note 可以写你的记忆来源。
+#
+name,width,from,to,sector,colour,note
+Chemin du Garlitz,,,,Pla d'Adet,绿,
+Echarpe,,,,Pla d'Adet,绿,
+École,,,,Pla d'Adet,绿,
+Ludette,,,,Pla d'Adet,绿,
+Kidpark,,,,Pla d'Adet,绿,
+Balcon de Cabane,,,,Pla d'Adet,蓝,
+Bouleaux,,,,Pla d'Adet,蓝,
+Cabane,,,,Pla d'Adet,蓝,
+Corniche 1,,,,Pla d'Adet,蓝,
+Corniche 2,,,,Pla d'Adet,蓝,
+Desman,,,,Pla d'Adet,蓝,
+Escalette,,,,Pla d'Adet,蓝,
+Garlitz,,,,Pla d'Adet,蓝,
+Mickeys,,,,Pla d'Adet,蓝,
+Soum de Matte,,,,Pla d'Adet,蓝,
+Tétras,,,,Pla d'Adet,蓝,
+François Vignole,,,,Pla d'Adet,红,
+Violette,,,,Pla d'Adet,红,
+Bassia,,,,Pla d'Adet,黑,
+Carrots,,,,Pla d'Adet,黑,
+Le Couloir,,,,Pla d'Adet,黑,
+Source,,,,Pla d'Adet,蓝,
+Balcon du Lita,,,,Espiaube,蓝,
+Balcon Mouscades 1,,,,Espiaube,蓝,
+Balcon Mouscades 2,,,,Espiaube,蓝,
+Balcon Mouscades 3,,,,Espiaube,蓝,
+Combes d'Aulon,,,,Espiaube,蓝,
+Peyramède,,,,Espiaube,蓝,
+Tortes,,,,Espiaube,蓝,
+Forêt,,,,Espiaube,红,
+Les Tours,,,,Espiaube,红,
+Lupins,,,,Espiaube,红,
+Mirabelle I,,,,Espiaube,红,
+Mirabelle II,,,,Espiaube,红,
+Rhodos 1,,,,Espiaube,红,
+Rhodos 2,,,,Espiaube,红,
+Sorbiers,,,,Espiaube,红,
+Adret,,,,Espiaube,黑,
+Arbizon 1,,,,Espiaube,黑,
+Arbizon 2,,,,Espiaube,黑,
+Arbizon 3,,,,Espiaube,黑,
+Sarrats,,,,Espiaube,黑,
+Terrenère,,,,Espiaube,黑,
+Stade slalom,,,,Espiaube,红,
+Baby Merlans,,,,Le Vallon,绿,
+Gentianes,,,,Le Vallon,绿,
+Arrouyes,,,,Le Vallon,蓝,
+Col,,,,Le Vallon,蓝,
+Combe Sabourès,,,,Le Vallon,蓝,
+Jetas,,,,Le Vallon,蓝,
+Marmottes,,,,Le Vallon,蓝,
+Montarrouyes,,,,Le Vallon,蓝,
+Ours,,,,Le Vallon,蓝,
+Palombes,,,,Le Vallon,蓝,
+Bastan,,,,Le Vallon,红,
+Corneblanque,,,,Le Vallon,红,
+Isard,,,,Le Vallon,红,
+L'Oule,,,,Le Vallon,红,
+Mur Merlans,,,,Le Vallon,红,
+Pichaleye,,,,Le Vallon,红,
+Balcon de l'Oule,,,,Le Vallon,黑,
+Lagopède,,,,Le Vallon,黑,
+Oussadet,,,,Le Vallon,黑,
+Soumaye,,,,Le Vallon,黑,
+Stade,,,,Le Vallon,蓝,

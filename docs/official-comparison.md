@@ -1,0 +1,166 @@
+# OSM vs official Saint-Lary data — differences
+
+Compared on 2026-10-22.
+
+- **Official list**: [saintlary.com infos neige](https://www.saintlary.com/hiver/infos-pratiques/infos-neige/) — piste names, colours, sectors, lift names (season list; all shown "fermée" off-season).
+- **Official map**: panorama from the resort's interactive map ([saint-lary.digisnow.app/map/1](https://saint-lary.digisnow.app/map/1/fr)), image file dated 2024-11-25, plus its label list (`/v1/widget-map/1`). Used for reading only, not copied into the game.
+- **OSM**: `data/raw/v2/saint-lary.osm`, osm_base 2026-10-21.
+
+Connections were checked by eye against the panorama, which is a perspective painting, so "matches" means "same pistes meet in the same order", not survey accuracy.
+
+## A. Pistes on the official list missing from OSM
+
+| Official | Colour | Sector | OSM |
+|---|---|---|---|
+| Lupins | red | Espiaube | not mapped. Panorama shows it at the bottom near Tortes / Arbizon 3 |
+| Ludette | green | Pla d'Adet | only as unnamed green "Sans nom" near the Ludette lift |
+| Ecole | green | Pla d'Adet | only as unnamed green near the École carpet |
+| Kidpark | green | Pla d'Adet | only as unnamed green near the Kid Park carpet |
+
+## B. Same piste, different name in OSM
+
+| Official | OSM | Note |
+|---|---|---|
+| Terrenère | **Terranère** | spelling |
+| Soum | **soum de matte** | the panorama also labels it "soum de matte"; the official list says "Soum" |
+| Balcon cabane | **Balcon de Cabanne** | the panorama says "balcon de cabane"; OSM has a double n |
+| Couloir | **Le Couloir** | |
+| Sarrat | **Sarrats** | |
+| Baby merlans | **Baby** | |
+| Corniche 1 / 2 | Corniche I / II | numbering style only |
+| Mirabelle 1 / 2 | Mirabelle I / II | numbering style only |
+| Bouleaux | **Bouleaux + bouleaux** | the lower 205 m (way in run-… ending near Bouleaux lift) is lower-case, so it is a separate piste in our data |
+| Isard | **Isard + isard** | the upper 410 m is lower-case "isard"; a 12 m piece has no difficulty |
+| Tétras, Violette, Carrots | tétras, violette, carrots | lower-case only |
+| Arbizon | Arbizon / **Arbizon 1** / **Arbizon 3** | the panorama labels arbizon 1, 2, 3; the official list has one "Arbizon". The OSM "Arbizon" is only 103 m (probably arbizon 2's start) |
+| Rhodos | Rhodos | the panorama labels rhodos 1 and 2; OSM has one way, fine |
+
+## C. Colour differences
+
+| Piste | Official | OSM |
+|---|---|---|
+| Combes d'Aulon | blue | blue, but **one 448 m piece (way 1148860520) is tagged red**. The panorama shows an unlabelled red line beside the Aulon lift, so this may be a real red variant whose name is wrong — needs checking on the ground |
+| isard (upper piece, way 1029057252) | red | no difficulty (12 m) |
+
+All other matched names have the same colour.
+
+## D. Fragments named after a piste but not on the official list
+
+These are short pieces where OSM gives part of a piste its own name. They are not errors as such, but they break the piste into separate entries:
+
+- "Balcon Mouscades" (161 m, the end of Balcon Mouscades 1 at Col du Portet)
+- "Mirabelle" (207 m, the start of Mirabelle I)
+- "Combe d'Aulon bleu" (285 m)
+- 25 runs with no name ("Sans nom", 4.7 km in total) and 46 connections ("Liaison", 2.1 km)
+
+## E. Connections
+
+**Match the panorama**:
+
+- Pla d'Adet: Bouleaux → Forêt / tétras / Balcon de Cabanne; Le Couloir from Escalette to Balcon de Cabanne; carrots from François Vignole to Escalette/Cabane; violette, soum de matte and Bassia from the Bouleaux top.
+- Espiaube: Balcon du Lita → Arbizon 1 / Rhodos / Corniche II / Sorbiers → Forêt; Terranère and Adret from the Col de Terrenère.
+- Vallon: Corneblanque → Bastan → Balcon de l'Oule → L'Oule; Glacier → Pichaleye / Marmottes; Isards top → Lagopède / Oussadet / isard.
+- Soumaye: Soumaye top → Col / Peyramède / Les Tours / Combes d'Aulon / Montarrouyes.
+
+**Gaps in OSM** (piste end does not share a node with the next piste; shown in-game as "数据未直接相连"):
+
+| From | To | Gap |
+|---|---|---|
+| Corniche I (upper, from Soum de Matte lift) | Escalette / Corniche I | 5–7 m |
+| Lagopède | Isard | 16 m |
+| Tortes (88 m piece) | Arbizon 3 | 17 m |
+| unnamed red after Rhodos | Arbizon 3 | 17 m |
+| unnamed blue | Peyramède | 6 m |
+| 9 "Liaison" connections | Echarpe, Isard, Tortes, Combe Saboures, Les Tours… | 4–30 m |
+
+These are tiny OSM drawing gaps (two lines that should touch). On the panorama they all connect.
+
+**Duplicated geometry in OSM**:
+
+- Two L'Oule ways run on top of each other for about 560 m (a 562 m piece shares its nodes with the 1692 m piece).
+- One Balcon Mouscades 1 piece (way 1030063860) and one connection (way 1029656223) lie completely inside Balcon Mouscades 1 (way 405007750).
+
+**Not checkable**:
+
+- The panorama shows "cabane 3 km" as a long route along the bottom of Pla d'Adet. OSM's Cabane is 758 m and ends at Echarpe; no OSM piste goes below 1607 m. Either the rest is not mapped or it is a different route — needs checking.
+
+## F. Lifts
+
+Official: 24 lifts (10 chairs, 9 drags, 2 gondolas, 1 cable car, 2 covered carpets). OSM: 27.
+
+| Official | OSM | Note |
+|---|---|---|
+| Soum | **Soum de Matte** | the panorama label is "TS-Soum" |
+| Forêt | Foret | accent |
+| Sabourès | Saboures | accent |
+| Isard | **Isards ×2** | way 1138090599 (281 m rise) is the real one; way 1138090600 rises only 11 m — likely a stray or old way |
+| Baby merlan | Baby Merlans | |
+| Télécabine village | **Vignec - Saint-Lary 1700** | same gondola, different name |
+| Télécabine Espiaube | Espiaube | |
+| Téléphérique Pic Lumière | Pic Lumière | no piste within 80 m of the top in OSM (it arrives in the village at Pla d'Adet) |
+| — | **ESF 2**, **Jardin d'Enfants** | magic carpets not on the official list (ski-school / kids' area, possibly private or removed) |
+
+Lift ↔ piste links do not exist in OSM at all; the game guesses them from a top/bottom distance of 80 m.
+
+## G. On the panorama but not on the official list
+
+"stade" (Vallon, between Gentianes and Arrouyes), "stade slalom" (under Mirabelle I), "source" (next to Desman), "piste du col 3 km" (dotted, Vallon — looks like a non-alpine route). Not in OSM either, apart from what may be unnamed pieces.
+
+---
+
+# Corrections applied (2026-10-22)
+
+Rules from the project owner:
+- Where OSM and the official data disagree, the official data wins.
+- Names follow the official panorama map. Accents are taken from the official list where the painted label is in capitals or drops them.
+- Pistes with no name stay unnamed; the game shows only their colour.
+
+All corrections are in [`data/corrections.json`](../data/corrections.json) and applied by `scripts/build_resort.py`. Every corrected run carries a `corrections` field. OSM itself is not edited.
+
+| Area | What was done |
+|---|---|
+| Piste names | OSM spellings mapped to the panorama labels: Terranère→Terrenère, Balcon de Cabanne→Balcon de Cabane, Combe Saboures→Combe Sabourès, Corniche I/II→1/2, lower-case bouleaux/isard/tétras/violette/carrots/soum de matte, Baby→Baby Merlans, fragments "Balcon Mouscades", "Mirabelle", "Combe d'Aulon bleu", "Arbizon". OSM names that already match the panorama stay: Soum de Matte, Marmottes, Balcon du Lita, Sarrats, Le Couloir, Mirabelle I/II |
+| Splits | Rhodos → Rhodos 1 / Rhodos 2, and OSM "Arbizon 1" → Arbizon 1 / Arbizon 2, both split where they cross Corniche 2 (the panorama labels them so) |
+| Colours | Every named run takes its official colour. The 12 m Isard piece with no colour is now red |
+| Unnamed | "Sans nom" / "Liaison" removed: unnamed pistes have an empty name and show as e.g. "蓝道" or "连接道" in game, with no sign |
+| Kids' area | Green ways along the Kid Park and École carpets named Kidpark / École (confirmed) |
+| Duplicates | 4 overlapping OSM ways dropped (two L'Oule, one Balcon Mouscades 1, one connection) |
+| Gaps | Piste ends that miss the next piste by ≤ 30 m count as connected (`how: "gap"`) |
+| Hand-drawn | Lupins, Ludette, Source, Stade, Stade slalom (see below) |
+| Lifts | Panorama names: L'Adet, Soum de Matte, Isards, Baby, Espiaube, Forêt, Sabourès, École, Kid Park, Télécabine village, Téléphérique Pic Lumière. Dropped ESF 2, Jardin d'Enfants and the 11 m second Isards → 24 lifts, as officially counted |
+| Lift ↔ piste | Still by distance: `LIFT_LINK_RADIUS = 80` m at the top of `scripts/build_resort.py`. Change it there and rebuild; the value is recorded in `meta.liftLinkRadius` |
+
+## Hand-drawn pistes
+
+These pistes are on the official panorama but not in OSM. Their lines are **estimates** built from nearby OSM features (`drawn` in corrections.json). They are marked `estimated: true` and the game says "位置为估计（按官方地图手画）". Their ends join other pistes within `DRAWN_LINK_RADIUS = 60` m.
+
+| Piste | Colour | How it is drawn |
+|---|---|---|
+| Lupins | red | Midway between the lower Tortes and Arbizon 3, from the end of Rhodos 2 down to Espiaube (432 m). The 12 m unnamed red OSM stub at the end of Rhodos 2 (way 1029263455) is dropped in favour of the drawn line |
+| Ludette | green | 30 m off the Ludette drag lift, on the Kid Park side, top to bottom (274 m) |
+| Source | blue | 40 m off Desman, on the Cabane side (568 m) |
+| Stade | blue | 90 m off the Arrouyes lift, on the Gentianes side, lower half of the slope (922 m) |
+| Stade slalom | red | 45 m off the upper half of Mirabelle I, on the Soumaye lift side (510 m) |
+
+Not drawn: "cabane 3 km" and "piste du col 3 km". Both are dotted on the panorama, i.e. not alpine pistes.
+
+## Decisions on the earlier questions
+
+| # | Decision |
+|---|---|
+| Q1 | Red line beside Aulon: kept red, unnamed |
+| Q2 | Lupins: hand-drawn |
+| Q3 | Ludette: hand-drawn |
+| Q4 | Names from the official panorama |
+| Q5 | "cabane 3 km" is dotted → ignored. The OSM **Cabane** (758 m, Escalette → Echarpe) is the panorama's "cabane"; **Balcon de Cabane** (851 m, westward from Bouleaux) is a different piste |
+| Q6 | Stade, Stade slalom, Source: hand-drawn. "piste du col 3 km": not drawn (dotted, same reasoning as Q5) |
+| Q7 | Unnamed pistes stay unnamed and are not labelled |
+| Q8 | Distance rule kept; radius is the `LIFT_LINK_RADIUS` variable |
+| Q9 | Kidpark / École confirmed |
+
+# Open questions
+
+- **"Arbizons 3".** The panorama paints "arbizons 3" with an s, while the official list has one "Arbizon". The game uses "Arbizon 3", treating the s as a typo. Is that right?
+- **Hand-drawn positions** were only checked by eye against a perspective painting. Lupins and Ludette sit between well-mapped neighbours and should be close. Stade and Stade slalom are the least certain. A GPS track or a ground check would settle them.
+- **Lift names in capitals** ("SABOURES", "FORÊT"): accents were taken from the official list. Fine unless the panorama is meant to show no accent.
+- **"piste du col 3 km"**: left out because it is dotted. If it is in fact a ski route, it can be hand-drawn like the others.

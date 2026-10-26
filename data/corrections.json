@@ -1,0 +1,110 @@
+{
+  "about": "Local corrections applied on top of OSM by scripts/build_resort.py. Rule: where OSM and the official resort data disagree, the official data wins; names follow the official panorama map. Evidence and decisions: docs/official-comparison.md.",
+  "officialSources": [
+    "https://www.saintlary.com/hiver/infos-pratiques/infos-neige/ (piste and lift list with colours, 2026-10-22)",
+    "https://saint-lary.digisnow.app/map/1/fr (official panorama, image dated 2024-11-25) — names are taken from its labels"
+  ],
+  "officialPistes": {
+    "Chemin du Garlitz": "green", "Echarpe": "green", "École": "green", "Ludette": "green", "Kidpark": "green",
+    "Baby Merlans": "green", "Gentianes": "green",
+    "Balcon du Lita": "blue", "Balcon Mouscades 1": "blue", "Balcon Mouscades 2": "blue", "Balcon Mouscades 3": "blue",
+    "Combes d'Aulon": "blue", "Peyramède": "blue", "Tortes": "blue", "Arrouyes": "blue", "Col": "blue",
+    "Combe Sabourès": "blue", "Jetas": "blue", "Marmottes": "blue", "Montarrouyes": "blue", "Ours": "blue", "Palombes": "blue",
+    "Balcon de Cabane": "blue", "Bouleaux": "blue", "Cabane": "blue", "Corniche 1": "blue", "Corniche 2": "blue", "Desman": "blue",
+    "Escalette": "blue", "Garlitz": "blue", "Mickeys": "blue", "Soum de Matte": "blue", "Tétras": "blue",
+    "Forêt": "red", "Les Tours": "red", "Lupins": "red", "Mirabelle I": "red", "Mirabelle II": "red",
+    "Rhodos 1": "red", "Rhodos 2": "red", "Sorbiers": "red",
+    "Bastan": "red", "Corneblanque": "red", "Isard": "red", "L'Oule": "red", "Mur Merlans": "red", "Pichaleye": "red",
+    "François Vignole": "red", "Violette": "red",
+    "Adret": "black", "Arbizon 1": "black", "Arbizon 2": "black", "Arbizon 3": "black", "Sarrats": "black", "Terrenère": "black",
+    "Balcon de l'Oule": "black", "Lagopède": "black", "Oussadet": "black", "Soumaye": "black", "Bassia": "black", "Carrots": "black",
+    "Le Couloir": "black"
+  },
+  "panoramaOnlyPistes": {
+    "Source": "blue", "Stade": "blue", "Stade slalom": "red"
+  },
+  "pisteNameAliases": {
+    "Combe d'Aulon bleu": "Combes d'Aulon",
+    "Combe Saboures": "Combe Sabourès",
+    "Balcon de Cabanne": "Balcon de Cabane",
+    "Balcon Mouscades": "Balcon Mouscades 1",
+    "bouleaux": "Bouleaux",
+    "Corniche I": "Corniche 1",
+    "Corniche II": "Corniche 2",
+    "soum de matte": "Soum de Matte",
+    "tétras": "Tétras",
+    "Mirabelle": "Mirabelle I",
+    "isard": "Isard",
+    "Mur merlans": "Mur Merlans",
+    "violette": "Violette",
+    "Terranère": "Terrenère",
+    "carrots": "Carrots",
+    "Baby": "Baby Merlans",
+    "Arbizon": "Arbizon 1",
+    "Sans nom": "",
+    "Liaison": ""
+  },
+  "splits": {
+    "Rhodos": { "atJunctionWith": "Corniche 2", "names": ["Rhodos 1", "Rhodos 2"], "why": "The panorama labels rhodos 1 above the Corniche 2 crossing and rhodos 2 below it; OSM has one way." },
+    "Arbizon 1": { "atJunctionWith": "Corniche 2", "names": ["Arbizon 1", "Arbizon 2"], "why": "The panorama labels arbizon 1 above the Corniche 2 crossing and arbizon 2 below it; OSM names both 'Arbizon 1'." }
+  },
+  "ways": {
+    "1148860520": { "name": "", "difficulty": "red", "why": "Tagged as a red Combes d'Aulon in OSM. Officially Combes d'Aulon is blue, but the panorama shows an unnamed red line beside the Aulon lift. Kept red, unnamed (decision Q1)." },
+    "1029057252": { "difficulty": "red", "why": "12 m start of Isard with no difficulty; Isard is red." },
+    "473137403": { "name": "Kidpark", "why": "Unnamed green way along the Kid Park carpet (confirmed, Q9)." },
+    "473137405": { "name": "École", "why": "Unnamed green way along the École carpet (confirmed, Q9)." },
+    "400872989": { "name": "École", "why": "Continuation of 473137405 along the École carpet." },
+    "473137406": { "name": "École", "why": "Second unnamed green way along the École carpet." }
+  },
+  "dropWays": {
+    "1030063860": "Balcon Mouscades 1 piece lying entirely on top of way 405007750.",
+    "1029656223": "Connection lying entirely on top of Balcon Mouscades 1 (way 405007750).",
+    "324443015": "L'Oule piece drawn on top of the main L'Oule (way 666364894).",
+    "114580070": "L'Oule piece drawn on top of the main L'Oule (way 666364894).",
+    "1029263455": "12 m unnamed red stub at the end of Rhodos 2 where Lupins starts; replaced by the hand-drawn Lupins so it does not appear as a second Lupins."
+  },
+  "drawn": [
+    {
+      "name": "Lupins", "difficulty": "red", "method": "between",
+      "a": { "run": "Tortes", "near": [-500, -640] }, "b": { "run": "Arbizon 3" }, "from": 0.04, "to": 0.97,
+      "why": "Not in OSM. Panorama: red line from the end of Rhodos 2, between Tortes and Arbizon 3, down to Espiaube."
+    },
+    {
+      "name": "Ludette", "difficulty": "green", "method": "offset",
+      "ref": { "lift": "Ludette" }, "toward": { "lift": "Kid Park" }, "offset": 30, "from": 0.05, "to": 0.95,
+      "why": "Not in OSM. Panorama: green line on the Kid Park side of the Ludette drag lift, top to bottom."
+    },
+    {
+      "name": "Source", "difficulty": "blue", "method": "offset",
+      "ref": { "run": "Desman" }, "toward": { "run": "Cabane" }, "offset": 40, "from": 0.05, "to": 0.9,
+      "why": "Panorama only (not on the official list, not in OSM): blue line just on the Cabane side of Desman."
+    },
+    {
+      "name": "Stade", "difficulty": "blue", "method": "offset",
+      "ref": { "lift": "Arrouyes" }, "toward": { "lift": "Gentianes" }, "offset": 90, "from": 0.0, "to": 0.55,
+      "why": "Panorama only: blue line on the Gentianes side of the Arrouyes lift, lower half of the slope."
+    },
+    {
+      "name": "Stade slalom", "difficulty": "red", "method": "offset",
+      "ref": { "run": "Mirabelle I", "near": [-2288, 803] }, "toward": { "lift": "Soumaye" }, "offset": 45, "from": 0.05, "to": 0.55, "taperEnd": true,
+      "why": "Panorama only: red dashed slalom stadium beside the upper half of Mirabelle I, on the Soumaye lift side."
+    }
+  ],
+  "liftNames": {
+    "Adet": "L'Adet",
+    "Foret": "Forêt",
+    "Saboures": "Sabourès",
+    "Baby Merlans": "Baby",
+    "Vignec - Saint-Lary 1700": "Télécabine village",
+    "Pic Lumière": "Téléphérique Pic Lumière"
+  },
+  "dropLifts": {
+    "1037770851": "ESF 2 magic carpet: not on the official lift list or panorama.",
+    "1037770852": "Jardin d'Enfants magic carpet: not on the official lift list or panorama.",
+    "1138090600": "Second 'Isards' way rising only 11 m; the official data has one Isards drag lift (way 1138090599)."
+  },
+  "acceptNearGaps": {
+    "maxGap": 30,
+    "why": "Every piste end that misses the next piste by at most 30 m in OSM is drawn as connected on the official panorama."
+  }
+}
