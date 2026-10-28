@@ -1,21 +1,32 @@
 #!/usr/bin/env python3
-"""Build offline Saint-Lary data from OpenStreetMap + Terrarium DEM. Requires Pillow.
+"""Build offline resort data from OpenStreetMap + Terrarium DEM. Requires Pillow.
 
-  python3 scripts/build_resort.py          # rebuild from data/raw/v2
-  python3 scripts/build_resort.py --fetch  # re-download OSM (Overpass) and DEM tiles first
+  python3 scripts/build_resort.py                  # Saint-Lary, rebuild from data/raw/v2
+  python3 scripts/build_resort.py --resort isola   # Isola 2000, rebuild from data/isola/raw
+  python3 scripts/build_resort.py --fetch          # re-download OSM (Overpass) and DEM tiles first
 
-Outputs data/resort.json (runs, lifts, terrain, topology) and data/scenery.json.
-data/corrections.json is applied on top of OSM: where OSM and the official resort data disagree, the official data wins.
+Outputs resort.json (runs, lifts, terrain, topology) and scenery.json in the resort's data folder.
+Its corrections.json is applied on top of OSM: where OSM and the official resort data disagree, the official data wins.
 """
 import argparse, csv, json, math, pathlib, subprocess, collections
 import xml.etree.ElementTree as ET
 from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RAW = ROOT / 'data/raw/v2'
-# Bounding box of OSM "Domaine de Saint-Lary" (landuse=winter_sports way 962494483), padded.
-BBOX = {'s': 42.805, 'w': 0.200, 'n': 42.855, 'e': 0.325}
-ORIGIN = {'lat': 42.83, 'lon': 0.2625}
+# One entry per resort. bbox = the OSM ski-area outline (landuse=winter_sports), padded.
+RESORTS = {
+    'saint-lary': {
+        'name': 'Saint-Lary-Soulan', 'scope': 'Domaine de Saint-Lary (OSM landuse=winter_sports way 962494483)',
+        'dir': ROOT / 'data', 'raw': ROOT / 'data/raw/v2', 'osm': 'saint-lary.osm',
+        'bbox': {'s': 42.805, 'w': 0.200, 'n': 42.855, 'e': 0.325}, 'origin': {'lat': 42.83, 'lon': 0.2625}, 'homeLift': 'Bouleaux',
+    },
+    'isola': {
+        'name': 'Isola 2000', 'scope': 'Isola 2000 (OSM landuse=winter_sports way 23079840)',
+        'dir': ROOT / 'data/isola', 'raw': ROOT / 'data/isola/raw', 'osm': 'isola.osm',
+        'bbox': {'s': 44.165, 'w': 7.110, 'n': 44.210, 'e': 7.185}, 'origin': {'lat': 44.1875, 'lon': 7.1475}, 'homeLift': 'Mercantour',
+    },
+}
+RESORT = RAW = BBOX = ORIGIN = COS = None  # set by use()
 ZOOM = 13
 GRID = 40  # terrain grid spacing, metres
 # OSM does not link lifts to pistes: a piste counts as leaving a lift top (or reaching a lift bottom)
@@ -35,11 +46,10 @@ WIDTH_CLASSES = {'窄': 25, 'narrow': 25, '普通': 45, 'normal': 45, '宽': 70,
 # Flat skiable area around lift stations (radius in metres, by lift type).
 PLAZA_RADIUS = {'gondola': 110, 'cable_car': 90, 'chair_lift': 80, 'platter': 45, 't-bar': 45, 'drag_lift': 45, 'magic_carpet': 30}
 M = 111319.49079327358
-COS = math.cos(math.radians(ORIGIN['lat']))
 UA = 'ski2D-prototype/0.1 (personal research)'
 OVERPASS = 'https://overpass-api.de/api/interpreter'
 TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
-QUERY = f"""[out:xml][timeout:180][bbox:{BBOX['s']},{BBOX['w']},{BBOX['n']},{BBOX['e']}];
+QUERY = """[out:xml][timeout:180][bbox:{s},{w},{n},{e}];
 (
   way["piste:type"]; relation["piste:type"]; relation["route"="piste"];
   way["aerialway"]; node["aerialway"];
@@ -56,6 +66,12 @@ DIFFICULTY = {'novice': 'green', 'easy': 'blue', 'intermediate': 'red', 'advance
 LIFTS = {'chair_lift', 'gondola', 'cable_car', 'platter', 't-bar', 'j-bar', 'drag_lift', 'magic_carpet', 'rope_tow', 'mixed_lift'}
 
 
+def use(slug):
+    global RESORT, RAW, BBOX, ORIGIN, COS
+    RESORT = RESORTS[slug]; RAW, BBOX, ORIGIN = RESORT['raw'], RESORT['bbox'], RESORT['origin']
+    COS = math.cos(math.radians(ORIGIN['lat']))
+
+
 def tile_xy(lat, lon, z=ZOOM):
     n = 2 ** z
     return (lon + 180) / 360 * n, (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n
@@ -68,7 +84,7 @@ def tile_range():
 
 def fetch():
     RAW.mkdir(parents=True, exist_ok=True)
-    subprocess.run(['curl', '--fail', '-sS', '-A', UA, '--max-time', '200', OVERPASS, '--data-urlencode', 'data=' + QUERY, '-o', str(RAW / 'saint-lary.osm')], check=True)
+    subprocess.run(['curl', '--fail', '-sS', '-A', UA, '--max-time', '200', OVERPASS, '--data-urlencode', 'data=' + QUERY.format(**BBOX), '-o', str(RAW / RESORT['osm'])], check=True)
     xs, ys = tile_range()
     for x in xs:
         for y in ys:
@@ -142,15 +158,19 @@ def rings_from_relation(rel, ways):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--fetch', action='store_true')
-    if ap.parse_args().fetch:
+    ap.add_argument('--resort', choices=RESORTS, default='saint-lary')
+    args = ap.parse_args()
+    use(args.resort)
+    out = RESORT['dir']
+    if args.fetch:
         fetch()
     dem = DEM()
-    fix = json.loads((ROOT / 'data/corrections.json').read_text())
+    fix = json.loads((out / 'corrections.json').read_text())
     official = {**fix['officialPistes'], **fix['panoramaOnlyPistes']}
     def official_name(name):
         name = fix['pisteNameAliases'].get(name, name)
         return name, name
-    xml = ET.parse(RAW / 'saint-lary.osm').getroot()
+    xml = ET.parse(RAW / RESORT['osm']).getroot()
     osm_base = xml.find('meta').attrib.get('osm_base') if xml.find('meta') is not None else None
     nodes = {n.attrib['id']: (float(n.attrib['lat']), float(n.attrib['lon'])) for n in xml.findall('node')}
     node_tags = {n.attrib['id']: {t.attrib['k']: t.attrib['v'] for t in n.findall('tag')} for n in xml.findall('node') if n.find('tag') is not None}
@@ -335,7 +355,7 @@ def main():
 
     # ---- Widths from data/piste-widths.csv. Fractions run top (0) → bottom (1) along the piste;
     # a piste in several pieces uses altitude instead (0 = its highest point, 1 = its lowest). ----
-    widths = read_widths(ROOT / 'data/piste-widths.csv')
+    widths = read_widths(out / 'piste-widths.csv')
     known = {t['name'] for t in trails}
     for name in widths:
         if name not in known: print(f'piste-widths.csv: unknown piste "{name}" (ignored)')
@@ -429,6 +449,7 @@ def main():
 
     # ---- Shape rule 4: loose ends. A piste start/end that lies on no other piste and no plaza gets a
     # connection: starts from a piste above, ends to a piste or plaza below (within LOOSE_END_RADIUS). ----
+    loose_radius = fix.get('looseEndRadius', LOOSE_END_RADIUS)
     def covered(pt, me):
         if any(math.dist(pt[:2], (pl['x'], pl['y'])) < pl['r'] for pl in plazas): return True
         if any(math.dist(pt[:2], (ap['x'], ap['y'])) < ap['r'] for ap in aprons): return True
@@ -446,12 +467,12 @@ def main():
             for q in o['points']:
                 if (above and q[2] < pt[2] - 5) or (not above and q[2] > pt[2] + 5): continue
                 dd = math.dist(q[:2], pt[:2]) - o['width'] / 2
-                if dd < LOOSE_END_RADIUS and (best is None or dd < best[0]): best = (dd, q, o)
+                if dd < loose_radius and (best is None or dd < best[0]): best = (dd, q, o)
         for pl in plazas:
             q = [pl['x'], pl['y'], dem(*to_latlon(pl['x'], pl['y']))]
             if (above and q[2] < pt[2] - 5) or (not above and q[2] > pt[2] + 5): continue
             dd = math.dist(q[:2], pt[:2]) - pl['r']
-            if dd < LOOSE_END_RADIUS and (best is None or dd < best[0]): best = (dd, q, None)
+            if dd < loose_radius and (best is None or dd < best[0]): best = (dd, q, None)
         return best
     for t in list(trails):
         if t.get('walkway'): continue
@@ -460,7 +481,7 @@ def main():
             if covered(pt, t): continue
             hit = nearest_point(pt, t, above=end == 'start')
             if not hit:
-                stats['looseEndsUnfixed'] += 1; print(f"loose {end} of {t['name'] or t['id']} has nothing within {LOOSE_END_RADIUS} m"); continue
+                stats['looseEndsUnfixed'] += 1; print(f"loose {end} of {t['name'] or t['id']} has nothing within {loose_radius} m"); continue
             a_, b_ = (hit[1], pt) if end == 'start' else (pt, hit[1])
             n = max(2, int(math.dist(a_[:2], b_[:2]) / 15))
             pts = [[round(a_[0] + (b_[0] - a_[0]) * k / n, 1), round(a_[1] + (b_[1] - a_[1]) * k / n, 1)] for k in range(n + 1)]
@@ -543,7 +564,8 @@ def main():
     buildings, restaurants = [], []
     for wid, ids in way_nodes.items():
         t = way_tags[wid]
-        if 'building' not in t or len(ids) < 4: continue
+        # Ruins and old fortifications are not huts; drawing them as chalets would mislead.
+        if 'building' not in t or t['building'] in ('ruins', 'bunker') or len(ids) < 4: continue
         pts = [local(*nodes[n]) for n in ids[:-1]]
         a = abs(sum(p[0] * q[1] - q[0] * p[1] for p, q in zip(pts, pts[1:] + pts[:1]))) / 2
         cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
@@ -559,7 +581,7 @@ def main():
             peaks.append({'name': t['name'], 'x': x, 'y': y, 'ele': t.get('ele')})
 
     meta = {
-        'name': 'Saint-Lary-Soulan', 'scope': 'Domaine de Saint-Lary (OSM landuse=winter_sports way 962494483)',
+        'name': RESORT['name'], 'scope': RESORT['scope'], 'homeLift': RESORT['homeLift'],
         'origin': ORIGIN, 'bbox': BBOX, 'osmSnapshotAt': osm_base, 'units': 'meters', 'coordinates': 'x east, y north, z DEM altitude',
         'sources': [
             {'name': '© OpenStreetMap contributors', 'license': 'ODbL 1.0', 'url': 'https://www.openstreetmap.org/copyright', 'via': OVERPASS},
@@ -569,13 +591,13 @@ def main():
                   'nodeLinks': sum(1 for t in trails for l in t['links'] if l['how'] == 'node'),
                   'gapLinks': sum(1 for t in trails for l in t['links'] if l['how'] == 'gap'),
                   'nearLinks': sum(1 for t in trails for l in t['links'] if l['how'] == 'near')},
-        'corrections': 'data/corrections.json (official resort data overrides OSM)',
-        'liftLinkRadius': LIFT_LINK_RADIUS, 'drawnLinkRadius': DRAWN_LINK_RADIUS, 'widths': 'data/piste-widths.csv',
+        'corrections': f"{(out / 'corrections.json').relative_to(ROOT)} (official resort data overrides OSM)",
+        'liftLinkRadius': LIFT_LINK_RADIUS, 'drawnLinkRadius': DRAWN_LINK_RADIUS, 'widths': str((out / 'piste-widths.csv').relative_to(ROOT)),
     }
     terrain = {'cols': cols, 'rows': rows, 'minX': minX, 'minY': minY, 'stepX': GRID, 'stepY': GRID, 'heights': heights,
                'source': meta['sources'][1]['name']}
-    (ROOT / 'data/resort.json').write_text(json.dumps({'meta': meta, 'trails': trails, 'lifts': lifts, 'plazas': plazas, 'aprons': aprons, 'domain': domain, 'pisteAreas': piste_areas, 'terrain': terrain}, ensure_ascii=False, separators=(',', ':')))
-    (ROOT / 'data/scenery.json').write_text(json.dumps({'forests': forests, 'buildings': buildings, 'restaurants': restaurants, 'peaks': peaks}, ensure_ascii=False, separators=(',', ':')))
+    (out / 'resort.json').write_text(json.dumps({'meta': meta, 'trails': trails, 'lifts': lifts, 'plazas': plazas, 'aprons': aprons, 'domain': domain, 'pisteAreas': piste_areas, 'terrain': terrain}, ensure_ascii=False, separators=(',', ':')))
+    (out / 'scenery.json').write_text(json.dumps({'forests': forests, 'buildings': buildings, 'restaurants': restaurants, 'peaks': peaks}, ensure_ascii=False, separators=(',', ':')))
     print(json.dumps(meta['stats'], ensure_ascii=False), f'terrain {cols}x{rows}', f'forests {len(forests)} buildings {len(buildings)} restaurants {len(restaurants)}')
 
 

@@ -1,0 +1,23 @@
+{
+  "about": "Local corrections applied on top of OSM by scripts/build_resort.py for Isola 2000. No official piste list has been checked yet, so names and colours are as mapped in OSM; only obvious spelling variants are merged.",
+  "officialSources": [],
+  "officialPistes": {},
+  "panoramaOnlyPistes": {},
+  "pisteNameAliases": {
+    "SuperVallon": "Super Vallon",
+    "Sans nom": "",
+    "Liaison": ""
+  },
+  "splits": {},
+  "ways": {},
+  "dropWays": {},
+  "drawn": [],
+  "liftNames": {},
+  "dropLifts": {},
+  "acceptNearGaps": {
+    "maxGap": 30,
+    "why": "Same rule as Saint-Lary: piste ends that miss the next piste by at most 30 m are treated as connected."
+  },
+  "looseEndRadius": 500,
+  "looseEndRadiusWhy": "Chevrette stops mid-slope in OSM (2095 m, past the Combe Grosse crossing) with nothing within 200 m below it. With 500 m the build connects it to Sierra at the same altitude, which then continues down; the connection is an estimate."
+}

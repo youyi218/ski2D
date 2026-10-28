@@ -1,10 +1,14 @@
-import resort from '../data/resort.json';
-import scenery from '../data/scenery.json';
 import { prepareRoute, roundCorners, sampleRoute, heightAt, clamp, buildPisteIndex, nearestPiste, createSkier, stepSkier } from './core.js';
 import { PALETTES } from './palettes.js';
 import { buildSprites } from './sprites.js';
 import { makeFrame, makeGeometry, drawMasks, GroundTiles, bakeOverview, placeEntities, TILE_M, TILE_MPP } from './world.js';
+import { RESORTS, DEFAULT_RESORT, chosenResort } from './resorts.js';
 import './style.css';
+
+const resortId = chosenResort(), R = RESORTS[resortId];
+document.title = `${R.title} · 雪场手记`;
+document.querySelector('.loading p')?.replaceChildren(R.place);
+const [{ default: resort }, { default: scenery }] = await R.load();
 
 const DIFF = { green: '绿道', blue: '蓝道', red: '红道', black: '黑道', connection: '连接道', unknown: '未标难度' };
 const trails = resort.trails.map(t => prepareRoute({ ...t, points: roundCorners(t.points, t.width) }, false, false));
@@ -105,12 +109,13 @@ function showMenu() {
   const list = trails.filter(r => r.kind === 'run' && r.name && r.length > 200)
     .sort((a, b) => b.length - a.length).filter(r => !seen.has(r.name) && seen.add(r.name))
     .sort((a, b) => order[a.difficulty] - order[b.difficulty] || b.points[0][2] - a.points[0][2]);
-  $('panel').innerHTML = `<div class="card menu"><h1>Saint-Lary · 雪道手记</h1>
+  $('panel').innerHTML = `<div class="card menu"><h1>${R.title} · 雪道手记</h1>
+    <div class="resorts">${Object.entries(RESORTS).map(([id, r]) => `<a href="${id === DEFAULT_RESORT ? '.' : '?resort=' + id}" class="${id === resortId ? 'on' : ''}">${r.title}<small>${r.place.split(' · ')[1]}</small></a>`).join('')}</div>
     ${state.resumeMode ? `<button data-resume class="resume">▶ 继续滑<small>回到刚才的位置（也可以按 Esc）</small></button>` : ''}
     <p>选一条雪道作为起点，之后就可以自由滑了：往哪拐就进哪条雪道，滑进缆车站会自动上缆车。镜头会一直朝向下坡，右上角的小地图永远北朝上。</p>
     <label class="scale">速度倍数 <input id="scale" type="range" min="${SCALE.min}" max="${SCALE.max}" step="${SCALE.step}" value="${state.timeScale}"> <b id="scaleOut">${state.timeScale.toFixed(1)}×</b><small>1× = 真实速度；游戏中按住 Shift 再快 ${SCALE.shift} 倍</small></label>
     <div class="list">${list.map(r => `<button data-route="${r.id}">${chip(r.difficulty)}${r.name}<small>${DIFF[r.difficulty]} · ${Math.round(r.length)} m · ${Math.round(r.points[0][2])} → ${Math.round(r.points.at(-1)[2])} m${r.estimated ? ' · ' + EST : ''}</small></button>`).join('')}</div>
-    <p class="fine">雪道、缆车、树林和建筑：© OpenStreetMap contributors（ODbL），数据截至 ${resort.meta.osmSnapshotAt?.slice(0, 10)}，按官方雪道图修正。地形：Mapzen Terrain Tiles / EU-DEM。非官方、非实时，仅供熟悉地形。</p></div>`;
+    <p class="fine">雪道、缆车、树林和建筑：© OpenStreetMap contributors（ODbL），数据截至 ${resort.meta.osmSnapshotAt?.slice(0, 10)}，${R.note}。地形：Mapzen Terrain Tiles / EU-DEM。非官方、非实时，仅供熟悉地形。</p></div>`;
 }
 
 app.addEventListener('input', e => {
@@ -233,7 +238,7 @@ function update(dt) {
       state.mode = 'ski'; state.lift = null; state.liftCooldown = state.t + 4;
     }
   } else if (state.mode === 'menu' && !state.target) {
-    const base = lifts.find(l => l.name === 'Bouleaux') || lifts[0];
+    const base = lifts.find(l => l.name === resort.meta.homeLift) || lifts[0];
     state.target = base.points[0].slice(0, 2);
   }
   // The idle menu slowly turns the view; a paused run keeps its camera still.

@@ -77,3 +77,17 @@ python3 -m venv .venv && .venv/bin/pip install pillow
 ## Not claimed
 
 Not an official piste map, not operational status, not verified against the resort's map. Community data can be incomplete or outdated; where it looks wrong, the fix belongs in OpenStreetMap itself.
+
+---
+
+# Isola 2000
+
+Built by the same script: `.venv/bin/python scripts/build_resort.py --resort isola` (add `--fetch` to re-download). Everything lives in `data/isola/`: `raw/` (OSM XML + DEM tiles), `corrections.json`, `piste-widths.csv`, and the generated `resort.json` / `scenery.json`. The game loads it at `?resort=isola`.
+
+- **OSM**: downloaded 2026-10-28 (`meta.osmSnapshotAt`). Area: bbox S 44.165, W 7.110, N 44.210, E 7.185 — the OSM ski-area outline *Isola 2000* (`landuse=winter_sports`, way 23079840), padded. Every piste and lift in the wider valley falls inside it.
+- **Elevation**: same Mapzen Terrarium source, zoom 13, x 4257–4259, y 2972–2973.
+- **Not checked against the official map.** No reliable official piste list was found, so names and colours are as mapped in OSM (`corrections.json` only merges `SuperVallon` → `Super Vallon`). Published counts are about 45 pistes and 19–22 lifts; this snapshot has 19 lifts and 45 named pistes.
+- **Chevrette** stops mid-slope in OSM (2095 m). `looseEndRadius: 500` in `corrections.json` lets the loose-end rule join it to Sierra at the same altitude; that link is estimated.
+- **Check**: hands-off from every piste start, 59 of 60 runs board a lift; Chastillon stops on the flat about 95 m from the Parcs drag lift.
+
+Applies to both resorts: `building=ruins` / `bunker` are not drawn (the old border fortifications above Isola were showing up as chalets; this removed 2 ruins at Saint-Lary too).

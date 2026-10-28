@@ -1,0 +1,61 @@
+# 雪道宽度表 — 改完后运行: .venv/bin/python scripts/build_resort.py --resort isola
+#
+# width（宽度）可以填：
+#   窄 / 普通 / 宽 / 很宽        （= 25 / 45 / 70 / 100 米）
+#   或直接填数字，单位米，比如 35
+#   留空 = 默认（雪道 45 米，连接道 18 米）
+#
+# from / to（可选）：只改某一段。0 = 雪道起点（上方），1 = 终点（下方），也可以写 30%。
+#   留空 = 整条。同一条雪道可以写多行，分别描述不同段，后写的行覆盖先写的。
+#   例：Bouleaux,宽,,,         整条都宽
+#       Bouleaux,窄,0,30%,     上面 30% 那段窄
+#
+# sector / colour / note 只是方便你看，不影响结果。note 可以写你的记忆来源。
+#
+name,width,from,to,sector,colour,note
+Access Geniserie,,,,,绿,
+Access Mene,,,,,绿,
+Boulevarde,,,,,绿,
+Chastillon,,,,,绿,
+Grand Tour,,,,,绿,
+Le Lac,,,,,绿,
+Louveteau,,,,,绿,
+Plateau,,,,,绿,
+Avenue,,,,,蓝,
+Cabane,,,,,蓝,
+Chamois Chapland,,,,,蓝,
+Chapelle,,,,,蓝,
+Chevrette,,,,,蓝,
+Clairière,,,,,蓝,
+Combe,,,,,蓝,
+Cuggia,,,,,蓝,
+Ecureuil,,,,,蓝,
+Grizli,,,,,蓝,
+Jo Martin,,,,,蓝,
+Marano,,,,,蓝,
+Panettone,,,,,蓝,
+Petit Parc,,,,,蓝,
+Saint-Sauveur,,,,,蓝,
+Sierra,,,,,蓝,
+Tetras,,,,,蓝,
+Vallon,,,,,蓝,
+Verps,,,,,蓝,
+Bartavelle Bas,,,,,红,
+Bartavelle Haut,,,,,红,
+Blanchon,,,,,红,
+Calada,,,,,红,
+Cloutas,,,,,红,
+Coq,,,,,红,
+Espace Tony's Snowland,,,,,红,
+Gypaète,,,,,红,
+Géant,,,,,红,
+Merlier,,,,,红,
+Myrtilles,,,,,红,
+Mélèzes,,,,,红,
+Sapins,,,,,红,
+Sistron,,,,,红,
+Stade Slalom,,,,,红,
+Levant,,,,,黑,
+Lou Mesclun,,,,,黑,
+Morisset,,,,,黑,
+Super Vallon,,,,,黑,

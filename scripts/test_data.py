@@ -4,6 +4,7 @@ import json, math, pathlib, unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = json.loads((ROOT / 'data/resort.json').read_text())
 SCENERY = json.loads((ROOT / 'data/scenery.json').read_text())
+ISOLA = json.loads((ROOT / 'data/isola/resort.json').read_text())
 length = lambda p: sum(math.dist(a[:2], b[:2]) for a, b in zip(p, p[1:]))
 
 
@@ -86,6 +87,33 @@ class GeographyTest(unittest.TestCase):
     def test_scenery(self):
         self.assertGreater(len(SCENERY['forests']), 100)
         self.assertTrue(all(len(ring) >= 3 for f in SCENERY['forests'] for ring in f))
+
+
+class IsolaTest(unittest.TestCase):
+    def test_provenance_and_size(self):
+        self.assertEqual(ISOLA['meta']['name'], 'Isola 2000')
+        self.assertTrue(ISOLA['meta']['osmSnapshotAt'])
+        self.assertGreater(len(ISOLA['trails']), 50)
+        self.assertGreater(len(ISOLA['lifts']), 15)
+        self.assertTrue(any(l['name'] == ISOLA['meta']['homeLift'] for l in ISOLA['lifts']))
+
+    def test_geometry(self):
+        t = ISOLA['terrain']
+        self.assertEqual(len(t['heights']), t['cols'] * t['rows'])
+        ids = {r['id'] for r in ISOLA['trails']}
+        for r in ISOLA['trails'] + ISOLA['lifts']:
+            p = r['points']
+            self.assertEqual(len(p), len(r['nodeIds']))
+            self.assertTrue(all(1700 < z < 2700 for _, _, z in p), r['name'])
+            if r in ISOLA['lifts']: self.assertLessEqual(p[0][2], p[-1][2])
+            else:
+                self.assertLess(p[-1][2] - p[0][2], 25, r['name'])
+                self.assertTrue(all(l['to'] in ids for l in r['links']))
+
+    def test_every_lift_top_reaches_a_piste(self):
+        for pl in [p for p in ISOLA['plazas'] if p['end'] == 'top']:
+            gap = min(min(math.dist((pl['x'], pl['y']), q[:2]) for q in t['points']) - t['width'] / 2 for t in ISOLA['trails'])
+            self.assertLess(gap, pl['r'] + 20, pl['lift'])
 
 
 if __name__ == '__main__':
