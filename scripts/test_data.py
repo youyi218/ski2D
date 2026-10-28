@@ -5,6 +5,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = json.loads((ROOT / 'data/resort.json').read_text())
 SCENERY = json.loads((ROOT / 'data/scenery.json').read_text())
 ISOLA = json.loads((ROOT / 'data/isola/resort.json').read_text())
+SERRE = json.loads((ROOT / 'data/serre-chevalier/resort.json').read_text())
 length = lambda p: sum(math.dist(a[:2], b[:2]) for a, b in zip(p, p[1:]))
 
 
@@ -89,32 +90,46 @@ class GeographyTest(unittest.TestCase):
         self.assertTrue(all(len(ring) >= 3 for f in SCENERY['forests'] for ring in f))
 
 
-class IsolaTest(unittest.TestCase):
+class OsmOnlyResort:
+    """Checks for resorts built straight from OSM (no official corrections)."""
+    DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = None, None, None, None, None
+
     def test_provenance_and_size(self):
-        self.assertEqual(ISOLA['meta']['name'], 'Isola 2000')
-        self.assertTrue(ISOLA['meta']['osmSnapshotAt'])
-        self.assertGreater(len(ISOLA['trails']), 50)
-        self.assertGreater(len(ISOLA['lifts']), 15)
-        self.assertTrue(any(l['name'] == ISOLA['meta']['homeLift'] for l in ISOLA['lifts']))
+        d = self.DATA
+        self.assertEqual(d['meta']['name'], self.NAME)
+        self.assertTrue(d['meta']['osmSnapshotAt'])
+        self.assertGreater(len(d['trails']), self.MIN_TRAILS)
+        self.assertGreater(len(d['lifts']), self.MIN_LIFTS)
+        self.assertTrue(any(l['name'] == d['meta']['homeLift'] for l in d['lifts']))
 
     def test_geometry(self):
-        t = ISOLA['terrain']
+        d = self.DATA
+        t = d['terrain']
         self.assertEqual(len(t['heights']), t['cols'] * t['rows'])
-        ids = {r['id'] for r in ISOLA['trails']}
-        for r in ISOLA['trails'] + ISOLA['lifts']:
+        ids = {r['id'] for r in d['trails']}
+        lo, hi = self.ALT
+        for r in d['trails'] + d['lifts']:
             p = r['points']
             self.assertEqual(len(p), len(r['nodeIds']))
-            self.assertTrue(all(1700 < z < 2700 for _, _, z in p), r['name'])
-            if r in ISOLA['lifts']: self.assertLessEqual(p[0][2], p[-1][2])
+            self.assertTrue(all(lo < z < hi for _, _, z in p), r['name'])
+            if r in d['lifts']: self.assertLessEqual(p[0][2], p[-1][2])
             else:
                 self.assertLess(p[-1][2] - p[0][2], 25, r['name'])
                 self.assertTrue(all(l['to'] in ids for l in r['links']))
 
     def test_every_lift_top_reaches_a_piste(self):
-        for pl in [p for p in ISOLA['plazas'] if p['end'] == 'top']:
-            gap = min(min(math.dist((pl['x'], pl['y']), q[:2]) for q in t['points']) - t['width'] / 2 for t in ISOLA['trails'])
+        d = self.DATA
+        for pl in [p for p in d['plazas'] if p['end'] == 'top']:
+            gap = min(min(math.dist((pl['x'], pl['y']), q[:2]) for q in t['points']) - t['width'] / 2 for t in d['trails'])
             self.assertLess(gap, pl['r'] + 20, pl['lift'])
 
+
+class IsolaTest(OsmOnlyResort, unittest.TestCase):
+    DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = ISOLA, 'Isola 2000', (1700, 2700), 50, 15
+
+
+class SerreChevalierTest(OsmOnlyResort, unittest.TestCase):
+    DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = SERRE, 'Serre Chevalier', (1150, 2850), 200, 60
 
 if __name__ == '__main__':
     unittest.main()

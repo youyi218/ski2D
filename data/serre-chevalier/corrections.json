@@ -1,0 +1,23 @@
+{
+  "about": "Local corrections applied on top of OSM by scripts/build_resort.py for Serre Chevalier. No official piste list has been checked yet, so names and colours are as mapped in OSM; only obvious spelling variants are merged.",
+  "officialSources": [],
+  "officialPistes": {},
+  "panoramaOnlyPistes": {},
+  "pisteNameAliases": {
+    "Combe rateau": "Combe Râteau",
+    "Eduits": "Éduits",
+    "Trafleche": "Traflèche",
+    "Sans nom": "",
+    "Liaison": ""
+  },
+  "splits": {},
+  "ways": {},
+  "dropWays": {},
+  "drawn": [],
+  "liftNames": {},
+  "dropLifts": {},
+  "acceptNearGaps": {
+    "maxGap": 30,
+    "why": "Same rule as Saint-Lary: piste ends that miss the next piste by at most 30 m are treated as connected."
+  }
+}

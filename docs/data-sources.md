@@ -90,4 +90,16 @@ Built by the same script: `.venv/bin/python scripts/build_resort.py --resort iso
 - **Chevrette** stops mid-slope in OSM (2095 m). `looseEndRadius: 500` in `corrections.json` lets the loose-end rule join it to Sierra at the same altitude; that link is estimated.
 - **Check**: hands-off from every piste start, 59 of 60 runs board a lift; Chastillon stops on the flat about 95 m from the Parcs drag lift.
 
-Applies to both resorts: `building=ruins` / `bunker` are not drawn (the old border fortifications above Isola were showing up as chalets; this removed 2 ruins at Saint-Lary too).
+Applies to all resorts: `building=ruins` / `bunker` are not drawn (the old border fortifications above Isola were showing up as chalets; this removed 2 ruins at Saint-Lary too).
+
+---
+
+# Serre Chevalier
+
+Built by the same script: `.venv/bin/python scripts/build_resort.py --resort serre-chevalier` (add `--fetch` to re-download). Everything lives in `data/serre-chevalier/`, laid out like `data/isola/`. The game loads it at `?resort=serre-chevalier`.
+
+- **OSM**: downloaded 2026-10-29 (`meta.osmSnapshotAt`). Area: bbox S 44.880, W 6.475, N 44.985, E 6.640 — the OSM ski-area outline *Serre Chevalier* (`landuse=winter_sports`, way 599436073), padded. It covers Briançon, Chantemerle, Villeneuve and Le Monêtier; the separate Pelvoux-Vallouise outline to the south is left out.
+- **Elevation**: same Mapzen Terrarium source, zoom 13, x 4243–4247, y 2947–2950.
+- **Not checked against the official map.** Names and colours are as mapped in OSM; `corrections.json` only merges spelling variants (`Combe rateau` → `Combe Râteau`, `Eduits` → `Éduits`, `Trafleche` → `Traflèche`). `Traflèche` stays two pistes because OSM has one part black and one red. This snapshot has 70 lifts (including magic carpets) and 107 piste names.
+- **Size**: much larger than the other two (terrain 325 × 293 cells, ~11 800 buildings including Briançon); about 2 MB of JSON, loaded only when chosen. Still runs at full frame rate.
+- **Check**: hands-off from every piste start (starting past any station plaza), 217 of 246 board a lift. Nearly all the others are unnamed stubs under 130 m that cross the slope and are never offered as a start; of named runs, Eychauda stalls on its ~3 % ridge section below Cucumelle, and a few end on the flat 40–80 m from a lift.

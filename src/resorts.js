@@ -11,6 +11,11 @@ export const RESORTS = {
     note: '名称与难度按 OSM，尚未对照官方雪道图',
     load: () => Promise.all([import('../data/isola/resort.json'), import('../data/isola/scenery.json')]),
   },
+  'serre-chevalier': {
+    title: 'Serre Chevalier', place: 'Serre Chevalier · Hautes-Alpes',
+    note: '名称与难度按 OSM，尚未对照官方雪道图',
+    load: () => Promise.all([import('../data/serre-chevalier/resort.json'), import('../data/serre-chevalier/scenery.json')]),
+  },
 };
 export const DEFAULT_RESORT = 'saint-lary';
 
