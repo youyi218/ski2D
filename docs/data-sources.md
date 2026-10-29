@@ -104,3 +104,26 @@ Built by the same script: `.venv/bin/python scripts/build_resort.py --resort ser
 - **Checked against the official panorama and OpenSkiMap** on 2026-10-29: names and colours follow the official panorama (official data wins), lift names drop OSM's type codes. Details and open questions in [official-comparison.md](official-comparison.md#serre-chevalier--osm-vs-official-panorama-vs-openskimap). This snapshot has 70 lifts (official list: 50; the rest are village beginner lifts) and 107 piste names.
 - **Size**: much larger than the other two (terrain 325 × 293 cells, ~11 800 buildings including Briançon); about 2 MB of JSON, loaded only when chosen. Still runs at full frame rate.
 - **Check**: hands-off from every piste start (starting past any station plaza), 217 of 246 board a lift. Nearly all the others are unnamed stubs under 130 m that cross the slope and are never offered as a start; of named runs, Eychauda stalls on its ~3 % ridge section below Cucumelle, and a few end on the flat 40–80 m from a lift.
+
+---
+
+# Alpe d'Huez
+
+Built by the same script: `.venv/bin/python scripts/build_resort.py --resort alpe-d-huez` (add `--fetch` to re-download). Everything lives in `data/alpe-d-huez/`, laid out like `data/isola/`. The game loads it at `?resort=alpe-d-huez`.
+
+- **OSM**: downloaded 2026-10-29 (`meta.osmSnapshotAt`). Area: bbox S 45.040, W 6.020, N 45.180, E 6.150 — the OSM ski-area outline *Alpe d'Huez Grand Domaine* (`landuse=winter_sports`, way 45438982), padded. It covers Alpe d'Huez, Huez, Oz, Vaujany, Villard-Reculas and Auris, down to the Eau d'Olle Express at Allemond (723 m).
+- **Elevation**: same Mapzen Terrarium source, zoom 13, x 4232–4235, y 2941–2945.
+- **Checked against the official map and OpenSkiMap** on 2026-10-29: names and colours follow the official 2025/26 piste map (official data wins). Details and open questions in [official-comparison.md](official-comparison.md#alpe-dhuez--osm-vs-official-map-vs-openskimap). 133 piste names, 60 lifts plus carpets.
+- **Check**: hands-off from every piste start, 244 of 314 board a lift. Most of the others end on the flat 30–100 m from a lift (station areas the simple simulation does not cross) or are unnamed stubs; a few unnamed OSM pieces below Herpie and Lac Blanc stop far from any lift.
+
+---
+
+# Chamrousse
+
+Built by the same script: `.venv/bin/python scripts/build_resort.py --resort chamrousse`. Everything lives in `data/chamrousse/`. The game loads it at `?resort=chamrousse`.
+
+- **OSM**: downloaded 2026-10-29. Area: bbox S 45.080, W 5.855, N 45.145, E 5.925 — the OSM outline *Domaine Skiable Chamrousse* (`landuse=winter_sports`, way 1254312210), padded. Casserousse (1650), Recoin, Roche Béranger (1750) and Bachat-Bouloud (1700) up to the Croix (2250).
+- **Elevation**: zoom 13, x 4229–4230, y 2942–2944.
+- **Checked against the official map and OpenSkiMap** on 2026-10-29: see [official-comparison.md](official-comparison.md#chamrousse--osm-vs-official-map-vs-openskimap). 50 piste names, 16 lifts plus 2 carpets.
+- **Check**: hands-off, 78 of 89 piste starts board a lift; the rest are unnamed stubs or end on station flats.
+

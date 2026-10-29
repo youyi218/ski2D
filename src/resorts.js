@@ -20,6 +20,18 @@ export const RESORTS = {
     load: () => Promise.all([import('../data/serre-chevalier/resort.json'), import('../data/serre-chevalier/scenery.json')]),
     card: () => import('../data/serre-chevalier/card.json'),
   },
+  'alpe-d-huez': {
+    title: "Alpe d'Huez", place: "Alpe d'Huez Grand Domaine · Isère", region: '伊泽尔 · Oisans',
+    note: '已对照官方雪道图和 OpenSkiMap 修正',
+    load: () => Promise.all([import('../data/alpe-d-huez/resort.json'), import('../data/alpe-d-huez/scenery.json')]),
+    card: () => import('../data/alpe-d-huez/card.json'),
+  },
+  chamrousse: {
+    title: 'Chamrousse', place: 'Chamrousse · Isère', region: '伊泽尔 · Grenoble 以东',
+    note: '已对照官方雪道图和 OpenSkiMap 修正',
+    load: () => Promise.all([import('../data/chamrousse/resort.json'), import('../data/chamrousse/scenery.json')]),
+    card: () => import('../data/chamrousse/card.json'),
+  },
 };
 
 export function chosenResort() {

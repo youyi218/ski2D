@@ -3,7 +3,7 @@
 
   python3 scripts/build_resort.py                  # Saint-Lary, rebuild from data/raw/v2
   python3 scripts/build_resort.py --resort isola   # Isola 2000, rebuild from data/isola/raw
-  python3 scripts/build_resort.py --resort serre-chevalier
+  python3 scripts/build_resort.py --resort serre-chevalier   # also alpe-d-huez, chamrousse
   python3 scripts/build_resort.py --fetch          # re-download OSM (Overpass) and DEM tiles first
 
 Outputs resort.json (runs, lifts, terrain, topology) and scenery.json in the resort's data folder.
@@ -30,6 +30,16 @@ RESORTS = {
         'name': 'Serre Chevalier', 'scope': 'Serre Chevalier (OSM landuse=winter_sports way 599436073)',
         'dir': ROOT / 'data/serre-chevalier', 'raw': ROOT / 'data/serre-chevalier/raw', 'osm': 'serre-chevalier.osm',
         'bbox': {'s': 44.880, 'w': 6.475, 'n': 44.985, 'e': 6.640}, 'origin': {'lat': 44.9325, 'lon': 6.5575}, 'homeLift': 'Pontillas',
+    },
+    'alpe-d-huez': {
+        'name': "Alpe d'Huez", 'scope': "Alpe d'Huez Grand Domaine (OSM landuse=winter_sports way 45438982)",
+        'dir': ROOT / 'data/alpe-d-huez', 'raw': ROOT / 'data/alpe-d-huez/raw', 'osm': 'alpe-d-huez.osm',
+        'bbox': {'s': 45.040, 'w': 6.020, 'n': 45.180, 'e': 6.150}, 'origin': {'lat': 45.11, 'lon': 6.085}, 'homeLift': 'Marmottes 1',
+    },
+    'chamrousse': {
+        'name': 'Chamrousse', 'scope': 'Domaine Skiable Chamrousse (OSM landuse=winter_sports way 1254312210)',
+        'dir': ROOT / 'data/chamrousse', 'raw': ROOT / 'data/chamrousse/raw', 'osm': 'chamrousse.osm',
+        'bbox': {'s': 45.080, 'w': 5.855, 'n': 45.145, 'e': 5.925}, 'origin': {'lat': 45.1125, 'lon': 5.89}, 'homeLift': 'La Croix',
     },
 }
 RESORT = RAW = BBOX = ORIGIN = COS = None  # set by use()

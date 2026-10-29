@@ -267,14 +267,84 @@ No duplicated OSM ways. 54 piste ends miss the next piste by ≤ 30 m and are jo
 - **S2. Cabane, Chêne, Bois.** Their labels are hidden by icons or sit between two colours; OSM colours kept (Cabane blue, Chêne green, Bois black).
 - **S3. Cibouït / Yret.** Use the official ids' full names ("Rouge Cibouït", "Noire Cibouït", "Rouge Yret") instead of the painted "cibouit" / "yret"?
 
+# Alpe d'Huez — OSM vs official map vs OpenSkiMap
+
+Compared on 2026-10-29.
+
+- **Official map**: *Plan des pistes Hiver 2025-2026* ([PDF](https://www.alpedhuez.com/wp-content/uploads/2025/11/PLAN-DES-PISTES-HIVER-2025-2026.pdf), linked from alpedhuez.com/fr/plan-des-pistes), page 2. The piste labels are real PDF text (set letter by letter along the lines); the pistes are painted into the image. Each label's colour was sampled from the line around it on a 300 dpi render, and every label where that sample and OSM disagreed was re-read by eye on a crop. Used for reading only.
+- **OpenSkiMap**: export of 2026-10-28, ski area *Alpe d'Huez Grand Domaine* (OSM way 45438982, skimap.org #729); kept in `data/alpe-d-huez/raw/openskimap-*.geojson`. It is built from OSM and carries the same names and colours as our snapshot; its lift list adds Ascenseur Villard, Combe Bénite and Fontbelle, which sit outside our snapshot's lift tags (not added).
+- **OSM**: `data/alpe-d-huez/raw/alpe-d-huez.osm`, downloaded 2026-10-29.
+
+**Over 80 of the 92 labelled pistes agree in all three sources.** The rest:
+
+## A. Colours
+
+| Piste | Official | OSM | Done |
+|---|---|---|---|
+| Clocher de Mâcle | red (label follows the red line beside the Marmottes 3 cable) | black | → red |
+| Petit Prince | red (label on the red line right of the Petit Prince drag) | blue | → red |
+| Écureuil (Montfrais) | green, inside the beginner area | Ecureuils, blue | → Écureuil, green |
+| Altiport, Agneaux, Bergers, Villard | one colour each (green / blue / blue / blue) | mixed pieces | → the official colour throughout |
+
+First-pass samples also flagged Brebis, Chardons, Dahut, Hermine, Lièvre Blanc, Lutins, Gentianes, La Fuma, Pré-rond, Le Rosai and Sarenne; on crops each label sits on a line of the OSM colour, so nothing changed.
+
+## B. Names
+
+Official spellings: Chavanus (OSM Chavannus), Chevreau (Chevreaux), Bergerie (Bergeries), Bergers (Les Bergers), Gentianes (Les Gentianes), Érables (Erables), Canetons (Cannetons). The map also labels *premier tronçon*, *retour skieur* and *épicéa*, which have no named OSM way; not drawn.
+
+## C. On OSM, not labelled on the official map
+
+Freeride itineraries (Château Noir, Combe du Loup), fun slopes and parks (Chez Roger, Marcel's Farm, Halfpipe/Snowpark/Tunnel de Marcel, Snowpark des Sagnes, Boarder Cross), race stadiums (Stade, Stade Désiré Lacroix, Stade du Taburle) and small links (Retour 1800, Retour Club Med, Retour TC Alpette, Variante Poutran, Corniche Variante, Signal Bis, Promontoire, Anémones…). Kept as mapped.
+
+## D. Lifts
+
+OSM names match the map's lift labels; Vallonet → Vallonnets and Rif Nel 1/2 → Rifnel 1/2 follow the map. Dropped: "TKF des Auberts (✝)" (marked as removed in OSM) and five 20–30 m station stubs that OSM draws as separate ways (Rif Nel, Pic Blanc, Poutran, Huez Express, Alpe Express). Village carpets and tows are kept, as for Serre Chevalier.
+
+## Open questions — Alpe d'Huez
+
+- **A1. Clocher de Mâcle and Petit Prince.** Both are red on this map but black / blue in OSM (and in older maps). Official wins, so they are red now; worth a second look on next season's map.
+- **A2. Unconnected pieces.** A few unnamed OSM ways under Herpie and Lac Blanc end far from any lift; left as mapped.
+
+---
+
+# Chamrousse — OSM vs official map vs OpenSkiMap
+
+Compared on 2026-10-29.
+
+- **Official map**: *Chamrousse Alpine Park* 2026/27 ([PDF](https://www.chamrousse.com/medias/images/info_pages/plan-alpin-2627-web-3644.pdf), linked from chamrousse.com/plan-pistes-alpin.html). Pistes are vector lines in the legend colours, and each label is set in the colour of its piste; labels are outlines, not text, so all of them were read by eye on a 300 dpi render, tile by tile.
+- **OpenSkiMap**: export of 2026-10-28, ski area *Chamrousse* (OSM relation 8763133 / way 1254312210, skimap.org #717); kept in `data/chamrousse/raw/openskimap-*.geojson`. Same names and colours as OSM.
+- **OSM**: `data/chamrousse/raw/chamrousse.osm`, downloaded 2026-10-29.
+
+**34 labelled pistes agree in all three sources.** The rest:
+
+| Piste | Official | OSM | Done |
+|---|---|---|---|
+| Bascule | black | red | → black |
+| Éterlou | green | blue + green pieces | → green throughout |
+| Liaison Roche | blue | "Liaison Roche - Recoin" / "Liason Roche - Recoin" | renamed |
+| Liaison Recoin | blue | "Liason Recoin - Roche" | renamed |
+| Traversée du Rat | blue | La Traversée du Rat | renamed |
+| Variante des Gaboureaux | red | Variante Gaboureaux | renamed |
+| Stade Aiguille | red | Stade de L'Aiguille | renamed |
+
+On OSM but not labelled on the map: Anthracite, Balmette, Jardins, Loups, Variante Loups et Jardins, Passage Krieg, Perchette, Totem 1, Stade F. Masnada (drawn on the map as a stadium, not a line). Kept as mapped. The map labels "Mur du Téléski" (black) and "Lac" (blue), which have no named OSM way; not drawn.
+
+Lifts: OSM's 18 named lifts match the map. Dropped the summer wakeboard cable on the lake (tagged as a drag lift) and an unnamed 20 m drag.
+
+## Open questions — Chamrousse
+
+- **C1. Lauze.** Labelled with the green beginner lines next to the Lauze carpet; kept green as in OSM.
+
 # Corrections applied (2026-10-29)
 
-All in `data/isola/corrections.json` and `data/serre-chevalier/corrections.json`; every corrected run lists its changes in `corrections`.
+All in each resort's `corrections.json`; every corrected run lists its changes in `corrections`.
 
 | Resort | What was done |
 |---|---|
 | Isola | 42 official names with colours; renames Boulevard, Grizzli, Accès Génisserie (×2), Bartavelle (merge), Piste de Compétition (was Coq), B.Cabane (was Cabane), Tétras, Écureuil; colours Le Lac → blue, Grizzli → green |
 | Serre Chevalier | 75 official names with colours; renames Clot Gaillard, Route d'Aravet; Traflèche all red; 24 lift names without type codes |
+| Alpe d'Huez | 92 official names with colours; Clocher de Mâcle → red, Petit Prince → red, Écureuil → green; 7 spelling fixes; 6 lifts dropped (1 removed, 5 station stubs) |
+| Chamrousse | 41 official names with colours; Bascule → black; Liaison Roche / Recoin, Traversée du Rat, Variante des Gaboureaux, Stade Aiguille renamed; wakeboard cable dropped |
 
 ## Decisions on the open questions (2026-10-29)
 

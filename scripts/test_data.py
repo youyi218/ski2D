@@ -6,6 +6,8 @@ DATA = json.loads((ROOT / 'data/resort.json').read_text())
 SCENERY = json.loads((ROOT / 'data/scenery.json').read_text())
 ISOLA = json.loads((ROOT / 'data/isola/resort.json').read_text())
 SERRE = json.loads((ROOT / 'data/serre-chevalier/resort.json').read_text())
+ALPE = json.loads((ROOT / 'data/alpe-d-huez/resort.json').read_text())
+CHAMROUSSE = json.loads((ROOT / 'data/chamrousse/resort.json').read_text())
 length = lambda p: sum(math.dist(a[:2], b[:2]) for a, b in zip(p, p[1:]))
 
 
@@ -131,10 +133,18 @@ class IsolaTest(OsmOnlyResort, unittest.TestCase):
 class SerreChevalierTest(OsmOnlyResort, unittest.TestCase):
     DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = SERRE, 'Serre Chevalier', (1150, 2850), 200, 60
 
+
+class AlpeDHuezTest(OsmOnlyResort, unittest.TestCase):
+    DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = ALPE, "Alpe d'Huez", (700, 3350), 300, 60
+
+
+class ChamrousseTest(OsmOnlyResort, unittest.TestCase):
+    DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = CHAMROUSSE, 'Chamrousse', (1350, 2300), 70, 15
+
 class CardTest(unittest.TestCase):
     """Landing-page summaries (scripts/build_cards.py) must match the resort data they summarise."""
     def test_cards_match_resorts(self):
-        for folder in ('data', 'data/isola', 'data/serre-chevalier'):
+        for folder in ('data', 'data/isola', 'data/serre-chevalier', 'data/alpe-d-huez', 'data/chamrousse'):
             d = json.loads((ROOT / folder / 'resort.json').read_text())
             c = json.loads((ROOT / folder / 'card.json').read_text())
             self.assertEqual(c['osmSnapshotAt'], d['meta']['osmSnapshotAt'], f'{folder}: rerun scripts/build_cards.py')

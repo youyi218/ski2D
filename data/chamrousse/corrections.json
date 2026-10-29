@@ -1,0 +1,72 @@
+{
+  "about": "Local corrections applied on top of OSM by scripts/build_resort.py for Chamrousse. Rule (as for Saint-Lary): where OSM and the official resort data disagree, the official data wins; names follow the official piste map. Evidence and open questions: docs/official-comparison.md (Chamrousse section).",
+  "officialSources": [
+    "https://www.chamrousse.com/medias/images/info_pages/plan-alpin-2627-web-3644.pdf (official 'Alpine Park' piste map 2026/27, linked from chamrousse.com/plan-pistes-alpin.html; pistes are coloured vector lines with coloured labels, read by eye on a 300 dpi render, 2026-10-29)",
+    "https://tiles.openskimap.org/geojson/runs.geojson + lifts.geojson (OpenSkiMap export of 2026-10-28; extract kept in data/chamrousse/raw/openskimap-*.geojson)"
+  ],
+  "officialPistes": {
+    "Aiguille": "green",
+    "Bachat Bouloud": "green",
+    "Éterlou": "green",
+    "Lauze": "green",
+    "Crêtes": "blue",
+    "Retour P2": "blue",
+    "Liaison Roche": "blue",
+    "Liaison Casserousse": "blue",
+    "Liaison Recoin": "blue",
+    "Ours": "blue",
+    "Fusée": "blue",
+    "Grive": "blue",
+    "Variante Perche": "blue",
+    "Perche": "blue",
+    "Coqs": "blue",
+    "Bérangère": "blue",
+    "Col de Balme": "blue",
+    "Traversée du Rat": "blue",
+    "Chemin des Demoiselles": "blue",
+    "Lacs Robert": "red",
+    "Olympique Dames": "red",
+    "Niverolles": "red",
+    "Simond": "red",
+    "Ourson": "red",
+    "Gaboureaux": "red",
+    "Loups et Jardins": "red",
+    "Boardercross": "red",
+    "Arolles": "red",
+    "Variante des Gaboureaux": "red",
+    "Casserousse": "red",
+    "Stade du Col de Balme": "red",
+    "Stade Aiguille": "red",
+    "Schuss des Dames": "red",
+    "Olympique Hommes": "black",
+    "Couloir de Casserousse": "black",
+    "Variante Jallabres": "black",
+    "Jallabres": "black",
+    "Vallons": "black",
+    "Soldanelles": "black",
+    "Bascule": "black",
+    "Marmottes": "black"
+  },
+  "panoramaOnlyPistes": {},
+  "pisteNameAliases": {
+    "Liaison Roche - Recoin": "Liaison Roche",
+    "Liason Roche - Recoin": "Liaison Roche",
+    "Liason Recoin - Roche": "Liaison Recoin",
+    "La Traversée du Rat": "Traversée du Rat",
+    "Variante Gaboureaux": "Variante des Gaboureaux",
+    "Stade de L'Aiguille": "Stade Aiguille"
+  },
+  "splits": {},
+  "ways": {},
+  "dropWays": {},
+  "drawn": [],
+  "liftNames": {},
+  "dropLifts": {
+    "1256730818": "Wakeboard cable tow (summer water-ski lift on the lake), not a ski lift.",
+    "104004202": "Unnamed 20 m drag lift; not on the official map."
+  },
+  "acceptNearGaps": {
+    "maxGap": 30,
+    "why": "Same rule as Saint-Lary: piste ends that miss the next piste by at most 30 m are treated as connected."
+  }
+}

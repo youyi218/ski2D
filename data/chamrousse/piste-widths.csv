@@ -1,0 +1,66 @@
+# 雪道宽度表 — 改完后运行: .venv/bin/python scripts/build_resort.py --resort chamrousse
+#
+# width（宽度）可以填：
+#   窄 / 普通 / 宽 / 很宽        （= 25 / 45 / 70 / 100 米）
+#   或直接填数字，单位米，比如 35
+#   留空 = 默认（雪道 45 米，连接道 18 米）
+#
+# from / to（可选）：只改某一段。0 = 雪道起点（上方），1 = 终点（下方），也可以写 30%。
+#   留空 = 整条。同一条雪道可以写多行，分别描述不同段，后写的行覆盖先写的。
+#   例：Bouleaux,宽,,,         整条都宽
+#       Bouleaux,窄,0,30%,     上面 30% 那段窄
+#
+# sector / colour / note 只是方便你看，不影响结果。note 可以写你的记忆来源。
+#
+name,width,from,to,sector,colour,note
+
+Aiguille,,,,,绿,
+Anthracite,,,,,黑,
+Arolles,,,,,红,
+Bachat Bouloud,,,,,绿,
+Balmette,,,,,红,
+Bascule,,,,,黑,
+Boardercross,,,,,红,
+Bérangère,,,,,蓝,
+Casserousse,,,,,红,
+Chemin des Demoiselles,,,,,蓝,
+Col de Balme,,,,,蓝,
+Coqs,,,,,蓝,
+Couloir de Casserousse,,,,,黑,
+Crêtes,,,,,蓝,
+Fusée,,,,,蓝,
+Gaboureaux,,,,,红,
+Grive,,,,,蓝,
+Jallabres,,,,,黑,
+Jardins,,,,,红,
+Lacs Robert,,,,,红,
+Lauze,,,,,绿,
+Liaison Casserousse,,,,,蓝,
+Liaison Recoin,,,,,蓝,
+Liaison Roche,,,,,蓝,
+Loups,,,,,红,
+Loups et Jardins,,,,,红,
+Marmottes,,,,,黑,
+Niverolles,,,,,红,
+Olympique Dames,,,,,红,
+Olympique Hommes,,,,,黑,
+Ours,,,,,蓝,
+Ourson,,,,,红,
+Passage Krieg,,,,,红,
+Perche,,,,,蓝,
+Perchette,,,,,蓝,
+Retour P2,,,,,蓝,
+Schuss des Dames,,,,,红,
+Simond,,,,,红,
+Soldanelles,,,,,黑,
+Stade Aiguille,,,,,红,
+Stade du Col de Balme,,,,,红,
+Stade F. Masnada,,,,,红,
+Totem 1,,,,,绿,
+Traversée du Rat,,,,,蓝,
+Vallons,,,,,黑,
+Variante des Gaboureaux,,,,,红,
+Variante Jallabres,,,,,黑,
+Variante Loups et Jardins,,,,,红,
+Variante Perche,,,,,蓝,
+Éterlou,,,,,绿,
