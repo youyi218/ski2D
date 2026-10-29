@@ -164,3 +164,125 @@ Not drawn: "cabane 3 km" and "piste du col 3 km". Both are dotted on the panoram
 - **Hand-drawn positions** were only checked by eye against a perspective painting. Lupins and Ludette sit between well-mapped neighbours and should be close. Stade and Stade slalom are the least certain. A GPS track or a ground check would settle them.
 - **Lift names in capitals** ("SABOURES", "FORÊT"): accents were taken from the official list. Fine unless the panorama is meant to show no accent.
 - **"piste du col 3 km"**: left out because it is dotted. If it is in fact a ski route, it can be hand-drawn like the others.
+
+---
+
+# Isola 2000 — OSM vs official map vs OpenSkiMap
+
+Compared on 2026-10-29.
+
+- **Official map**: *Guide pratique Hiver 2025/2026* ([PDF](https://isola2000.com/wp-content/uploads/2025/12/guide-pratique-hiver-web.pdf)), p. 4–5 "Plan des pistes". The labels are real text in the PDF and the pistes are vector lines in the legend colours, so each label's colour was measured as the nearest piste line, then checked by eye on a 4× render. p. 6 gives the official counts: **45 pistes (7 green, 22 blue, 13 red, 3 black), 20 lifts (2 gondolas, 7 chairs, 8 drags, 2 carpets, 1 funicular)**.
+- **Official live list**: the Lumiplan snow report on isola2000.com lists nothing off-season, so it could not be used.
+- **OpenSkiMap**: export of 2026-10-28 (`tiles.openskimap.org/geojson`), ski area *Isola 2000* (OSM relation 3545221, skimap.org #698). The Isola runs and lifts are kept in `data/isola/raw/openskimap-*.geojson`.
+- **OSM**: `data/isola/raw/isola.osm`, downloaded 2026-10-28.
+
+OpenSkiMap is built from OSM, and for Isola it has exactly the same names and colours as our OSM data. Its only extras are a snow-park area ("Espace Tony's Snowland") and the funicular (see Lifts). So every difference below is between OSM and the official map.
+
+## A. Names
+
+| Official map | OSM / OpenSkiMap | Done |
+|---|---|---|
+| boulevard | Boulevarde | renamed |
+| grizzli | Grizli | renamed |
+| accès génisserie | Access Geniserie + Access Mene | both renamed: on the map the green accès génisserie line runs on from the Valette bottom to the Méné bottom, which is OSM's "Access Mene" |
+| bartavelle | Bartavelle Haut + Bartavelle Bas | merged into one Bartavelle |
+| piste de compétition | **Coq** (red, 1.6 km from the Mercantour top, beside the gondola) | renamed: same place as the pink "piste de compétition" strip on the map |
+| b.cabane | Cabane (Mercantour top → Valette) | renamed |
+| tétras, écureuil | Tetras, Ecureuil | accents |
+| chamois / chapland | Chamois Chapland | kept: the map always prints the two names together on one line |
+| st sauveur | Saint-Sauveur | kept: "st" is only the label's abbreviation (the lift is "Saint-Sauveur" too) |
+
+## B. Colours
+
+| Piste | Official | OSM | Done |
+|---|---|---|---|
+| Le Lac | blue | green | → blue |
+| Grizzli | green | blue | → green |
+| Levant | green (a short line from the Grande Combe bottom towards Belvédère) | **black**, 1.3 km from the Grande Combe top down to its bottom | not changed (decision I1) |
+
+Every other name has the same colour in all three sources.
+
+## C. Lifts
+
+OSM has 19, the official count is 20: the **funicular** (free, front de neige) is missing because our OSM query only reads aerialways; OpenSkiMap has it. Lift names match the map (accents aside). OSM's three small front-de-neige lifts ("Front de Neige 1" drag, "Front de neige 1/2" carpets) match the official 8 drags + 2 carpets.
+
+## D. Geometry
+
+No duplicated OSM ways. 12 piste ends miss the next piste by ≤ 30 m and are joined (`gap`), as for Saint-Lary. Chevrette's dead end is joined to Sierra (estimated), which agrees with the map, where chevrette runs down to sierra / jo martin.
+
+## Open questions — Isola
+
+- **I1. Levant.** OSM's "Levant" (black, Grande Combe top → bottom) is not where the map's green "levant" is. The map shows two blue lines down the Grande Combe drag ("combe" and one unlabelled). Options: (a) rename OSM's Levant to unnamed blue, (b) leave it as is, (c) also draw the short green levant from the map.
+- **I2. Funicular.** Add it as a lift (geometry from OpenSkiMap / OSM `railway=funicular`)? It links the resort centre to the front de neige; the game does not need it to reach any piste.
+- **I3. Counts.** After the fixes there are 8 green and 20 blue names against the official 7 and 22; the brochure count may group pistes differently (e.g. chamois and chapland as two). Not chased further.
+
+---
+
+# Serre Chevalier — OSM vs official panorama vs OpenSkiMap
+
+Compared on 2026-10-29.
+
+- **Official panorama**: the resort's interactive map ([serre-chevalier.digisnow.app/map/1/fr](https://serre-chevalier.digisnow.app/map/1/fr), image "Plan-2025-modifs.jpg", 3840 × 1749) and its public label list (`/v1/widget-map/1`: 110 labels, each an official id such as `pre-de-jeanne` or `rouge-cibouit` placed on the painting). The same painting is the official [2025–2026 print PDF](https://www.serre-chevalier.com/sites/default/files/2025-10/plan-pistes-serre-chevalier-2025-2026.pdf). Colours were read by eye from a crop around every label; uncertain ones were re-read on wider crops. Used for reading only, not copied into the game.
+- **Official live list**: the digisnow snow report is empty off-season.
+- **OpenSkiMap**: export of 2026-10-28, ski area *Serre-Chevalier* (OSM relation 3160540, skimap.org #692); kept in `data/serre-chevalier/raw/openskimap-*.geojson`.
+- **OSM**: `data/serre-chevalier/raw/serre-chevalier.osm`, downloaded 2026-10-29.
+
+**63 pistes agree in all three sources** (name and colour). Below are the rest.
+
+## A. Names
+
+| Official | OSM | OpenSkiMap | Done |
+|---|---|---|---|
+| clot gaillard | Clos Gaillard | Clos Gaillard **and** Clot Gaillard (OpenSkiMap shows a second OSM object spelled correctly) | renamed to Clot Gaillard |
+| route d'aravet | Aravet (green, 6.2 km in 5 pieces) | Aravet / "Deval' Bob, Aravet" | renamed to Route d'Aravet |
+| combe râteau, éduits, traflèche | Combe rateau, Eduits, Trafleche variants | same | merged (already in the first build) |
+| rouge cibouït / noire cibouït, rouge yret | Cibouït (red + black pieces), Yret | same | kept: the painted labels say just "cibouit" / "yret"; colours already match each piece |
+| 3 croix | 3 Croix | 3 croix | kept (painted label "3 croix"; the id is `trois-croix`) |
+
+OpenSkiMap also carries OSM spellings our build does not use (they sit on other OSM objects): "Auguillette", "Martau", "Rempars", "Stde", "Grandes Gargouilles", "Condamine". None is the official spelling except Clot Gaillard. These are worth fixing in OSM itself.
+
+## B. Colours
+
+| Piste | Official | OSM | Done |
+|---|---|---|---|
+| Traflèche | red | 253 m black + 152 m red | → all red |
+
+At first sight Chaméant, Clot Gauthier, Condamines, Prairies and Luc Alphand looked different on the panorama. On wider crops each label sits on a line of the same colour as OSM, so nothing changed. 75 official names now carry their official colour in `corrections.json`.
+
+## C. On OSM, not on the official label list
+
+Aiche, Chazelay, Mickey, Ourson, Pitchoune, Ratier, Exercice Ratier 1/2, École Chanteloube, École Fréjus, Renard, Grande Boucle, Escartons, Pré Chabert, Retour Pré Chabert, Prarian, Verte (village beginner areas, mostly ≤ 600 m); Glaize, Lac, Club, Dame des Neiges, Ensa, Parc abri, Traversée Bayrou, Moulière, Cordeliers, Bois, Cabane, Chêne (painted on the panorama but without an id in the label list, or unclear); Stade (the three race stadiums, which the label list has as Chantemerle "Michel Canac", Monêtier and Villeneuve "Aravet"). Kept as mapped.
+
+## D. Lifts
+
+The official label list has 50 lifts; OSM and OpenSkiMap both have 70. OSM names carry type codes ("TSD6 Blétonet", "TCD10 Pontillas", "TKD1 Méa"…); they are renamed to the panorama names (Blétonet, Pontillas, Méa, Côte Chevalier, Orée du Bois, Croix de la Nore, Étoile, Pré Ratier 1/2, …). The extra 20 are village beginner lifts: magic carpets (Patou, Ourson, Blanchot, Bas, Haut 1/2, Neiges, Siflotte, Aravet 1/2, Oursons de Pralong, an unnamed one), rope tows (Pralong, Télécorde de Fréjus) and small drags (Aïche, Chanteloube 1/2, Mickey…). See S1.
+
+## E. Geometry
+
+No duplicated OSM ways. 54 piste ends miss the next piste by ≤ 30 m and are joined (`gap`). Nothing on the panorama is missing from OSM, so no piste is hand-drawn.
+
+## Open questions — Serre Chevalier
+
+- **S1. Beginner lifts.** For Saint-Lary, carpets not on the official list were dropped. Do the same here (−20 lifts, the village carpets and tows), or keep them since they are real ski-school lifts?
+- **S2. Cabane, Chêne, Bois.** Their labels are hidden by icons or sit between two colours; OSM colours kept (Cabane blue, Chêne green, Bois black).
+- **S3. Cibouït / Yret.** Use the official ids' full names ("Rouge Cibouït", "Noire Cibouït", "Rouge Yret") instead of the painted "cibouit" / "yret"?
+
+# Corrections applied (2026-10-29)
+
+All in `data/isola/corrections.json` and `data/serre-chevalier/corrections.json`; every corrected run lists its changes in `corrections`.
+
+| Resort | What was done |
+|---|---|
+| Isola | 42 official names with colours; renames Boulevard, Grizzli, Accès Génisserie (×2), Bartavelle (merge), Piste de Compétition (was Coq), B.Cabane (was Cabane), Tétras, Écureuil; colours Le Lac → blue, Grizzli → green |
+| Serre Chevalier | 75 official names with colours; renames Clot Gaillard, Route d'Aravet; Traflèche all red; 24 lift names without type codes |
+
+## Decisions on the open questions (2026-10-29)
+
+| # | Decision |
+|---|---|
+| I1 | Levant left as mapped in OSM (black, Grande Combe) |
+| I2 | Funicular not added |
+| I3 | Counts not chased further |
+| S1 | Beginner lifts kept (real ski-school lifts), unlike Saint-Lary's two carpets |
+| S2 | Cabane, Chêne, Bois keep their OSM colours |
+| S3 | Cibouït / Yret keep the painted names |

@@ -37,3 +37,39 @@ kbd { font: inherit; border: 2px solid var(--ink); border-radius: 5px; padding: 
 .hints { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; padding: 4px 12px; border-radius: 8px; background: var(--ui); border: 2px solid var(--ink); white-space: nowrap; }
 @media (max-width: 700px) { #minimap { width: 150px !important; height: auto !important; } .hints { display: none; } .palettes { top: auto; bottom: 12px; } }
 [hidden] { display: none !important; }
+.card a.home { color: var(--ink); font-size: 13px; opacity: .7; text-decoration: none; justify-self: start; }
+.card a.home:hover { opacity: 1; text-decoration: underline; }
+
+/* ---------- Landing page ---------- */
+html.landing, html.landing body { overflow: auto; height: auto; min-height: 100%; }
+.home-page { max-width: 1120px; margin: 0 auto; padding: 40px 16px 32px; display: grid; gap: 28px; }
+.home-head { display: flex; align-items: center; gap: 16px; }
+.home-head h1 { margin: 0; font-size: 34px; letter-spacing: 1px; }
+.home-head p { margin: 4px 0 0; font-size: 16px; opacity: .8; }
+.home-logo { flex: none; width: 56px; height: 56px; border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); background: #294b40 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M5 30 17 9l7 13 4-7 9 15Z' fill='%23f6f2e7'/%3E%3C/svg%3E") center / 100% no-repeat; }
+.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.resort-card { display: grid; grid-template-rows: auto 1fr; color: var(--ink); text-decoration: none; background: var(--ui); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 6px 0 var(--ink); overflow: hidden; transition: transform .12s, box-shadow .12s; }
+.resort-card:hover, .resort-card:focus-visible { transform: translateY(-3px); box-shadow: 0 9px 0 var(--ink); outline: none; }
+.resort-card:active { transform: translateY(3px); box-shadow: 0 3px 0 var(--ink); }
+.thumb { position: relative; border-bottom: 3px solid var(--ink); }
+.thumb canvas { display: block; width: 100%; aspect-ratio: 4 / 3; image-rendering: pixelated; }
+.badge { position: absolute; top: 10px; left: 10px; font-size: 12px; padding: 2px 8px; background: var(--accent); color: var(--ui); border: 2px solid var(--ink); border-radius: 8px; }
+.resort-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.resort-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.resort-name h2 { margin: 0; font-size: 24px; }
+.resort-name span { font-size: 13px; opacity: .7; }
+.stats { margin: 0; display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 6px; }
+.stats div { border: 2px solid var(--ink); border-radius: 10px; padding: 4px 8px; }
+.stats dt { font-size: 11px; opacity: .65; }
+.stats dd { margin: 0; font-size: 18px; font-weight: 600; white-space: nowrap; }
+.stats small { font-size: 11px; font-weight: 400; margin-left: 2px; opacity: .7; }
+.mix { display: flex; height: 12px; border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; }
+.mix i { display: block; }
+.mix i + i { border-left: 2px solid var(--ink); }
+.mix-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; opacity: .8; margin-top: -4px; }
+.mix-legend .dot { width: 10px; height: 10px; margin-right: 4px; }
+.resort-note { margin: 0; font-size: 12px; opacity: .6; }
+.go { align-self: flex-start; margin-top: auto; padding: 6px 14px; background: var(--accent); color: var(--ui); border: 3px solid var(--ink); border-radius: 10px; box-shadow: 0 3px 0 var(--ink); font-weight: 600; }
+.home-fine { font-size: 12px; opacity: .6; text-align: center; }
+.home-fine p { margin: 2px 0; }
+@media (max-width: 700px) { .home-page { padding-top: 24px; gap: 20px; } .home-head h1 { font-size: 28px; } .home-head p { font-size: 14px; } .home-logo { width: 44px; height: 44px; } }

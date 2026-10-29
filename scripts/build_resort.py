@@ -29,7 +29,7 @@ RESORTS = {
     'serre-chevalier': {
         'name': 'Serre Chevalier', 'scope': 'Serre Chevalier (OSM landuse=winter_sports way 599436073)',
         'dir': ROOT / 'data/serre-chevalier', 'raw': ROOT / 'data/serre-chevalier/raw', 'osm': 'serre-chevalier.osm',
-        'bbox': {'s': 44.880, 'w': 6.475, 'n': 44.985, 'e': 6.640}, 'origin': {'lat': 44.9325, 'lon': 6.5575}, 'homeLift': 'TCD10 Pontillas',
+        'bbox': {'s': 44.880, 'w': 6.475, 'n': 44.985, 'e': 6.640}, 'origin': {'lat': 44.9325, 'lon': 6.5575}, 'homeLift': 'Pontillas',
     },
 }
 RESORT = RAW = BBOX = ORIGIN = COS = None  # set by use()

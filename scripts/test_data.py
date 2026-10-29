@@ -131,5 +131,18 @@ class IsolaTest(OsmOnlyResort, unittest.TestCase):
 class SerreChevalierTest(OsmOnlyResort, unittest.TestCase):
     DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = SERRE, 'Serre Chevalier', (1150, 2850), 200, 60
 
+class CardTest(unittest.TestCase):
+    """Landing-page summaries (scripts/build_cards.py) must match the resort data they summarise."""
+    def test_cards_match_resorts(self):
+        for folder in ('data', 'data/isola', 'data/serre-chevalier'):
+            d = json.loads((ROOT / folder / 'resort.json').read_text())
+            c = json.loads((ROOT / folder / 'card.json').read_text())
+            self.assertEqual(c['osmSnapshotAt'], d['meta']['osmSnapshotAt'], f'{folder}: rerun scripts/build_cards.py')
+            self.assertEqual(c['stats']['pistes'], len({t['name'] for t in d['trails'] if t['kind'] == 'run' and t['name']}), folder)
+            m = c['map']
+            self.assertEqual(len(m['shade']), m['w'] * m['h'])
+            self.assertEqual(len(m['trails']), len(d['trails']))
+
+
 if __name__ == '__main__':
     unittest.main()

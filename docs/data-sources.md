@@ -71,6 +71,7 @@ In the game, piste centrelines are also rounded at bends over ~20° (`roundCorne
 python3 -m venv .venv && .venv/bin/pip install pillow
 .venv/bin/python scripts/build_resort.py           # from retained snapshot
 .venv/bin/python scripts/build_resort.py --fetch   # re-download OSM + tiles
+.venv/bin/python scripts/build_cards.py            # landing-page cards (card.json) for every resort
 .venv/bin/python scripts/test_data.py
 ```
 
@@ -86,9 +87,9 @@ Built by the same script: `.venv/bin/python scripts/build_resort.py --resort iso
 
 - **OSM**: downloaded 2026-10-28 (`meta.osmSnapshotAt`). Area: bbox S 44.165, W 7.110, N 44.210, E 7.185 — the OSM ski-area outline *Isola 2000* (`landuse=winter_sports`, way 23079840), padded. Every piste and lift in the wider valley falls inside it.
 - **Elevation**: same Mapzen Terrarium source, zoom 13, x 4257–4259, y 2972–2973.
-- **Not checked against the official map.** No reliable official piste list was found, so names and colours are as mapped in OSM (`corrections.json` only merges `SuperVallon` → `Super Vallon`). Published counts are about 45 pistes and 19–22 lifts; this snapshot has 19 lifts and 45 named pistes.
+- **Checked against the official map and OpenSkiMap** on 2026-10-29: names and colours follow the official 2025/26 piste map (official data wins). Details and open questions in [official-comparison.md](official-comparison.md#isola-2000--osm-vs-official-map-vs-openskimap). Official counts: 45 pistes, 20 lifts; this build has 19 lifts (the funicular is not read) and 43 named pistes.
 - **Chevrette** stops mid-slope in OSM (2095 m). `looseEndRadius: 500` in `corrections.json` lets the loose-end rule join it to Sierra at the same altitude; that link is estimated.
-- **Check**: hands-off from every piste start, 59 of 60 runs board a lift; Chastillon stops on the flat about 95 m from the Parcs drag lift.
+- **Check**: hands-off from every piste start, 57 of 58 runs board a lift; Chastillon stops on the flat about 95 m from the Parcs drag lift.
 
 Applies to all resorts: `building=ruins` / `bunker` are not drawn (the old border fortifications above Isola were showing up as chalets; this removed 2 ruins at Saint-Lary too).
 
@@ -100,6 +101,6 @@ Built by the same script: `.venv/bin/python scripts/build_resort.py --resort ser
 
 - **OSM**: downloaded 2026-10-29 (`meta.osmSnapshotAt`). Area: bbox S 44.880, W 6.475, N 44.985, E 6.640 — the OSM ski-area outline *Serre Chevalier* (`landuse=winter_sports`, way 599436073), padded. It covers Briançon, Chantemerle, Villeneuve and Le Monêtier; the separate Pelvoux-Vallouise outline to the south is left out.
 - **Elevation**: same Mapzen Terrarium source, zoom 13, x 4243–4247, y 2947–2950.
-- **Not checked against the official map.** Names and colours are as mapped in OSM; `corrections.json` only merges spelling variants (`Combe rateau` → `Combe Râteau`, `Eduits` → `Éduits`, `Trafleche` → `Traflèche`). `Traflèche` stays two pistes because OSM has one part black and one red. This snapshot has 70 lifts (including magic carpets) and 107 piste names.
+- **Checked against the official panorama and OpenSkiMap** on 2026-10-29: names and colours follow the official panorama (official data wins), lift names drop OSM's type codes. Details and open questions in [official-comparison.md](official-comparison.md#serre-chevalier--osm-vs-official-panorama-vs-openskimap). This snapshot has 70 lifts (official list: 50; the rest are village beginner lifts) and 107 piste names.
 - **Size**: much larger than the other two (terrain 325 × 293 cells, ~11 800 buildings including Briançon); about 2 MB of JSON, loaded only when chosen. Still runs at full frame rate.
 - **Check**: hands-off from every piste start (starting past any station plaza), 217 of 246 board a lift. Nearly all the others are unnamed stubs under 130 m that cross the slope and are never offered as a start; of named runs, Eychauda stalls on its ~3 % ridge section below Cucumelle, and a few end on the flat 40–80 m from a lift.
