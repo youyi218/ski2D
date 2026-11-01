@@ -31,7 +31,7 @@ export function t(key, vars = {}) {
 }
 
 const STR = {
-  app: { zh: '雪场手记', en: 'Ski Field Notes', fr: 'Carnet des pistes' },
+  app: { zh: '滑雪日记', en: 'Ski Diary', fr: 'Journal de ski' },
   tagline: {
     zh: '在像素雪山里，提前认识真实雪道。选一个雪场开始。',
     en: 'Get to know real pistes on a pixel mountain before you go. Pick a resort to start.',

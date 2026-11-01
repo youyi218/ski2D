@@ -1,4 +1,4 @@
-# 雪场手记
+# 滑雪日记
 
 在像素雪山里，提前认识真实雪道：Saint-Lary-Soulan（比利牛斯）、Isola 2000（尼斯附近，Alpes-Maritimes）、Serre Chevalier（Briançon，Hautes-Alpes）、Alpe d'Huez 和 Chamrousse（Isère）。首页选雪场，或直接打开 `?resort=saint-lary` / `?resort=isola` / `?resort=serre-chevalier` / `?resort=alpe-d-huez` / `?resort=chamrousse`。在线游玩：<https://ski.youyi.name>
 
