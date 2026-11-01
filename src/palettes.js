@@ -2,7 +2,7 @@
 // snow: 5 hillshade bands, lit → shadowed. groomed: the same bands on a piste.
 export const PALETTES = {
   warm: {
-    label: '暖阳',
+    label: 'pal_warm',
     bg: '#f3ead8',
     snow: ['#fffaf0', '#efe9e2', '#d9d6dc', '#bfc4d4', '#a2abc6'],
     groomed: ['#ffffff', '#fbf8f2', '#f0eeee', '#e2e4ec', '#cfd5e3'],
@@ -22,7 +22,7 @@ export const PALETTES = {
     ui: '#fff8ea', uiInk: '#3b2f3a', uiAccent: '#c4503f',
   },
   pastel: {
-    label: '粉彩',
+    label: 'pal_pastel',
     bg: '#f1e9f2',
     snow: ['#ffffff', '#f2edf8', '#e0d8ef', '#cbc0e6', '#b2a5d8'],
     groomed: ['#ffffff', '#fdfbff', '#f3f0fa', '#e6e1f4', '#d6cfec'],
@@ -42,7 +42,7 @@ export const PALETTES = {
     ui: '#fffaff', uiInk: '#5b4a6e', uiAccent: '#f27aa0',
   },
   dusk: {
-    label: '黄昏',
+    label: 'pal_dusk',
     bg: '#2e2a45',
     snow: ['#ffe2c4', '#f6c9b4', '#d9a9b4', '#a985a8', '#7a6a9a'],
     groomed: ['#fff0dc', '#ffdcc6', '#ecbcc0', '#c09ab6', '#8f7aa8'],

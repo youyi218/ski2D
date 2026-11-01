@@ -14,6 +14,15 @@
     <div id="app">
       <div class="loading" role="status"><span class="loading-mountain">▲</span><h1>正在铺好雪道</h1><p></p></div>
     </div>
+    <script>
+      // Loading text in the remembered (or browser) language, before the app's own i18n loads.
+      (function () {
+        var l; try { l = localStorage.getItem('ski2d.lang'); } catch (e) {}
+        l = l || (navigator.language || '').slice(0, 2).toLowerCase();
+        var t = { zh: ['雪场手记', '正在铺好雪道', 'zh-CN'], en: ['Ski Field Notes', 'Grooming the pistes', 'en'], fr: ['Carnet des pistes', 'Damage des pistes', 'fr'] }[l] || ['Ski Field Notes', 'Grooming the pistes', 'en'];
+        document.title = t[0]; document.querySelector('.loading h1').textContent = t[1]; document.documentElement.lang = t[2];
+      })();
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

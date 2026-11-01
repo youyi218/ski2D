@@ -138,12 +138,39 @@ export const SKI = {
   maxSpeed: 33,        // safety cap (~120 km/h), physics normally stops well below
   capSpeed: { forest: 5 },
   brake: 7, push: 4, pushMax: 4,
+  scrub: 3.5,         // how hard hands-off skiing slows for a bend too tight to make
   turn: [3, .5],       // max turn rate in rad/s: standing still → at turnSpeed (m/s) and above
   turnSpeed: 20,
   turnRamp: .8,        // seconds of holding a key before the full turn rate is reached
   turnLoss: .08,       // fraction of speed lost per radian turned at speed (skidding)
   assist: 1.6, assistRange: 50, fallLine: 1.2,
   minGrade: .08, crossSlope: .25,
+  tuck: 0, tuckDrag: 1, glide: 0, time: 1,
+  grip: 0, skidGrip: 1,
+};
+
+// Arcade feel: snappy carving that keeps speed, less friction, a tuck to go faster, fun powder,
+// and a minimum glide on pistes. The mountain stays real; only the skier cheats.
+export const ARCADE = {
+  ...SKI,
+  mu: { piste: .035, plaza: .06, snow: .07, forest: .2 },
+  drag: { piste: .0018, plaza: .0035, snow: .004, forest: .02 },
+  maxSpeed: 40,
+  capSpeed: { forest: 12 },
+  brake: 3.5, push: 6, pushMax: 6, // a gradual brake: from 110 km/h to a stop takes about 4 seconds
+  scrub: 7,
+  turn: [4, 1.6],
+  turnRamp: .25,
+  // Edge grip caps the sideways pull (m/s²), so the tightest turn radius is v² / grip:
+  // about 10 m at 36 km/h, 40 m at 72 km/h, 90 m at 108 km/h. Braking into a turn skids
+  // the skis round, tighter by skidGrip.
+  grip: 10, skidGrip: 2.2,
+  turnLoss: .015,
+  assist: 1.1,
+  tuck: 2.5,          // extra push (m/s²) while tucked
+  tuckDrag: .5,       // air drag multiplier while tucked
+  glide: 5,           // on a piste, never slower than this unless braking
+  time: 1.5,          // the simulation runs this much faster than real time
 };
 
 export function createSkier(x, y, heading) {
@@ -153,21 +180,28 @@ export function createSkier(x, y, heading) {
 const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
 const turnToward = (from, to, maxStep) => { const d = wrapAngle(to - from); return wrapAngle(from + clamp(d, -maxStep, maxStep)); };
 
-export function stepSkier(sk, input, env, dt) {
+export function stepSkier(sk, input, env, dt, P = SKI) {
   dt = clamp(dt, 0, .1);
   const surface = env.surface(sk.x, sk.y);
   sk.surface = surface;
-  const t = clamp(sk.speed / SKI.turnSpeed, 0, 1);
-  const maxTurn = lerp(SKI.turn[0], SKI.turn[1], t) * dt;
+  const t = clamp(sk.speed / P.turnSpeed, 0, 1);
+  // Tightest turn the edges allow at this speed (radians this step), or no limit without grip.
+  const gripTurn = P.grip ? P.grip * (input.brake ? P.skidGrip : 1) / Math.max(sk.speed, .5) * dt : Infinity;
+  const maxTurn = Math.min(lerp(P.turn[0], P.turn[1], t) * dt, gripTurn);
   const before = sk.heading;
   const g = env.guide?.(sk.x, sk.y);
   let [gx, gy] = env.gradient(sk.x, sk.y);
   const wantsDir = input.dir !== null && input.dir !== undefined;
-  // Holding a key eases into the turn: the rate ramps up over SKI.turnRamp seconds.
+  // Holding a key eases into the turn: the rate ramps up over P.turnRamp seconds.
   sk.hold = wantsDir ? (sk.hold || 0) + dt : 0;
+  // Stopped on a plaza or a piste that doesn't descend: steering can't get the skier moving, and
+  // the nearest piste can flick between two runs every frame, so hands-off they just stand still.
+  const stranded = sk.speed < .3 && (surface === 'plaza' || (g?.route && !(g.route.drop > 0)));
   if (wantsDir) {
-    sk.heading = turnToward(sk.heading, input.dir, maxTurn * Math.min(1, .25 + sk.hold / SKI.turnRamp));
-  } else if (g && g.dist < g.width / 2 + SKI.assistRange) {
+    sk.heading = turnToward(sk.heading, input.dir, maxTurn * Math.min(1, .25 + sk.hold / P.turnRamp));
+  } else if (stranded) {
+    // Leave the heading alone.
+  } else if (g && g.dist < g.width / 2 + P.assistRange) {
     // Along the piste, and back toward it when near or past its edge.
     // Aim at a point a little further down the centreline (pure pursuit): rounds hairpins and
     // brings a skier who drifted off back in. Without a route (tests), follow the tangent.
@@ -176,40 +210,48 @@ export function stepSkier(sk, input, env, dt) {
       const aim = sampleRoute(g.route, g.d + 12 + sk.speed + Math.max(0, g.dist - g.width / 2)).position;
       if (Math.hypot(aim[0] - sk.x, aim[1] - sk.y) > 2) target = Math.atan2(aim[1] - sk.y, aim[0] - sk.x);
     }
-    sk.heading = turnToward(sk.heading, target, maxTurn * Math.min(1, SKI.assist * Math.max(.4, Math.min(1, sk.speed / 3))));
+    sk.heading = turnToward(sk.heading, target, maxTurn * Math.min(1, P.assist * Math.max(.4, Math.min(1, sk.speed / 3))));
     // Too fast for a bend: scrub speed like a real skier would, so hairpins don't fling us off.
-    if (Math.abs(wrapAngle(target - sk.heading)) > 1 && sk.speed > 8) sk.speed -= SKI.brake * .5 * dt;
+    // With limited grip the bend needs checking earlier, before it is too late to make it.
+    if (Math.abs(wrapAngle(target - sk.heading)) > (P.grip ? .45 : 1) && sk.speed > 8) sk.speed -= P.scrub * dt;
   } else if (Math.hypot(gx, gy) > .03) {
-    sk.heading = turnToward(sk.heading, Math.atan2(-gy, -gx), maxTurn * SKI.fallLine / SKI.turn[0] * 2);
+    sk.heading = turnToward(sk.heading, Math.atan2(-gy, -gx), maxTurn * P.fallLine / P.turn[0] * 2);
   }
-  sk.speed *= 1 - Math.min(.5, Math.abs(wrapAngle(sk.heading - before)) * SKI.turnLoss * t);
+  sk.speed *= 1 - Math.min(.5, Math.abs(wrapAngle(sk.heading - before)) * P.turnLoss * t);
   // On a piste, the slope along it comes from the piste's own altitude profile (sampled at its
   // OSM nodes, finer than the 40 m terrain grid), so mapped descents never read as flat or uphill.
   if (g?.route?.cumulative && g.dist < g.width / 2) {
     const [tx, ty] = g.tangent;
     let along = (sampleRoute(g.route, g.d + 25).position[2] - sampleRoute(g.route, g.d - 25).position[2]) / Math.max(1, Math.min(50, g.route.length));
-    // A piste that descends overall never reads flatter than SKI.minGrade along its direction,
+    // A piste that descends overall never reads flatter than P.minGrade along its direction,
     // so traverses and DEM bumps keep a slow glide instead of stranding the skier mid-piste.
-    if (g.route.drop > 0) along = Math.min(along, -SKI.minGrade);
+    if (g.route.drop > 0) along = Math.min(along, -P.minGrade);
     // Groomed pistes are roughly level across: keep only part of the terrain's cross-slope.
     const k = gx * tx + gy * ty;
     const crossX = gx - k * tx, crossY = gy - k * ty;
-    gx = along * tx + crossX * SKI.crossSlope; gy = along * ty + crossY * SKI.crossSlope;
+    gx = along * tx + crossX * P.crossSlope; gy = along * ty + crossY * P.crossSlope;
   }
   const hx = Math.cos(sk.heading), hy = Math.sin(sk.heading);
   const slope = -(gx * hx + gy * hy);                       // rise over run along the heading, + = downhill
   const sin = slope / Math.sqrt(1 + slope * slope), cos = 1 / Math.sqrt(1 + slope * slope);
-  let acc = SKI.g * sin;
-  acc -= (sk.speed > 0 ? SKI.g * cos * (SKI.mu[surface] ?? .25) : 0) + (SKI.drag[surface] ?? .01) * sk.speed * sk.speed;
-  if (input.brake) acc -= SKI.brake;
+  let acc = P.g * sin;
+  acc -= (sk.speed > 0 ? P.g * cos * (P.mu[surface] ?? .25) : 0) + (P.drag[surface] ?? .01) * sk.speed * sk.speed;
+  if (input.tuck && !input.brake) acc += P.tuck + (P.drag[surface] ?? .01) * sk.speed * sk.speed * (1 - P.tuckDrag);
+  // Arcade braking always slows the skier, steep or not: the slope can't push them faster while braking.
+  if (input.brake) acc = (P.grip ? Math.min(acc, 0) : acc) - P.brake;
   // Holding a direction at low speed = skating / poling that way (works on the flat and gentle climbs).
   // Climbing (herringbone) is slow: the steeper the uphill, the lower the speed you can push to.
   const climb = Math.max(0, gx * hx + gy * hy);
-  const pushMax = SKI.pushMax * clamp(1 - climb * 6, .2, 1);
-  if (wantsDir && !input.brake && sk.speed < pushMax) acc += SKI.push * Math.max(0, Math.cos(wrapAngle(input.dir - sk.heading)));
+  const pushMax = P.pushMax * clamp(1 - climb * 6, .2, 1);
+  if (wantsDir && !input.brake && sk.speed < pushMax) acc += P.push * Math.max(0, Math.cos(wrapAngle(input.dir - sk.heading)));
   // Hands-off and stranded just off a piste: skate slowly back onto it.
-  else if (!wantsDir && !input.brake && surface !== 'piste' && surface !== 'plaza' && g && g.dist < g.width / 2 + SKI.assistRange && sk.speed < 1.5) acc += SKI.push;
-  sk.speed = clamp(sk.speed + acc * dt, 0, SKI.capSpeed[surface] ?? SKI.maxSpeed);
+  else if (!wantsDir && !input.brake && surface !== 'piste' && surface !== 'plaza' && g && g.dist < g.width / 2 + P.assistRange && sk.speed < 1.5) acc += P.push;
+  sk.speed = clamp(sk.speed + acc * dt, 0, P.capSpeed[surface] ?? P.maxSpeed);
+  if (P.glide && !input.brake && (surface === 'piste') && g?.route?.drop > 0) sk.speed = Math.max(sk.speed, Math.min(P.glide, sk.speed + P.push * dt));
+  // How hard the skis are biting into the snow (0–1): drives spray and the carving sound.
+  const turnRate = Math.abs(wrapAngle(sk.heading - before)) / Math.max(dt, 1e-6);
+  sk.skid = sk.speed < 2 ? 0 : clamp((input.brake ? 1 : 0) + turnRate * t / 2.5, 0, 1);
+  sk.tuck = !!input.tuck && !input.brake;
   const nx = sk.x + hx * sk.speed * dt, ny = sk.y + hy * sk.speed * dt;
   if (env.blocked?.(nx, ny)) {
     // Domain edge: stop and swing back toward the piste.

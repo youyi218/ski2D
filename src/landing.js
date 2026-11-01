@@ -2,14 +2,17 @@
 // Uses only the small card.json summaries, so it opens quickly; the full data loads once a resort is picked.
 import { PALETTES } from './palettes.js';
 import { RESORTS, LAST_KEY } from './resorts.js';
+import { t, pick, langSwitch, setLang } from './i18n.js';
 
 const pal = PALETTES.warm;
-const DIFF = [['green', '绿'], ['blue', '蓝'], ['red', '红'], ['black', '黑']];
+const DIFF = ['green', 'blue', 'red', 'black'].map(k => [k, t('short_' + k)]);
+const cap = s => s[0].toUpperCase() + s.slice(1);
 const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
 let last = null;
 try { last = localStorage.getItem(LAST_KEY); } catch {}
 
 document.documentElement.classList.add('landing');
+document.title = t('app');
 const app = document.getElementById('app');
 const ids = Object.keys(RESORTS);
 const cards = await Promise.all(ids.map(id => RESORTS[id].card().then(m => m.default)));
@@ -17,34 +20,36 @@ const cards = await Promise.all(ids.map(id => RESORTS[id].card().then(m => m.def
 app.innerHTML = `<main class="home-page">
   <header class="home-head">
     <span class="home-logo" aria-hidden="true"></span>
-    <div><h1>雪场手记</h1><p>在像素雪山里，提前认识真实雪道。选一个雪场开始。</p></div>
+    <div><h1>${t('app')}</h1><p>${t('tagline')}</p></div>
+    ${langSwitch()}
   </header>
   <div class="home-grid">${ids.map((id, i) => card(id, cards[i])).join('')}</div>
   <footer class="home-fine">
-    <p>雪道、缆车、树林和建筑：© OpenStreetMap contributors（ODbL）。地形：Mapzen Terrain Tiles / EU-DEM。</p>
-    <p>非官方、非实时，仅供熟悉地形。</p>
+    <p>${t('credits')}</p>
+    <p>${t('disclaimer')}</p>
   </footer>
 </main>`;
+app.addEventListener('click', e => { const b = e.target.closest('[data-lang]'); if (b) setLang(b.dataset.lang); });
 ids.forEach((id, i) => drawThumb(app.querySelector(`[data-thumb="${id}"]`), cards[i].map));
 
 function card(id, c) {
   const R = RESORTS[id], s = c.stats;
   const total = DIFF.reduce((n, [k]) => n + s.km[k], 0) || 1;
   return `<a class="resort-card" href="?resort=${id}">
-    <div class="thumb"><canvas data-thumb="${id}" width="${c.map.w}" height="${c.map.h}" aria-label="${R.title} 雪道示意图"></canvas>${id === last ? '<span class="badge">上次去过</span>' : ''}</div>
+    <div class="thumb"><canvas data-thumb="${id}" width="${c.map.w}" height="${c.map.h}" aria-label="${t('thumbLabel', { name: R.title })}"></canvas>${id === last ? `<span class="badge">${t('lastVisited')}</span>` : ''}</div>
     <div class="resort-body">
-      <div class="resort-name"><h2>${R.title}</h2><span>${R.region}</span></div>
+      <div class="resort-name"><h2>${R.title}</h2><span>${pick(R.region)}</span></div>
       <dl class="stats">
-        <div><dt>雪道</dt><dd>${s.pistes}<small>条</small></dd></div>
-        <div><dt>缆车</dt><dd>${s.lifts}<small>部</small></dd></div>
-        <div><dt>海拔</dt><dd>${s.low}–${s.high}<small>m</small></dd></div>
+        <div><dt>${t('statPistes')}</dt><dd>${s.pistes}<small>${t('statPistesUnit')}</small></dd></div>
+        <div><dt>${t('statLifts')}</dt><dd>${s.lifts}<small>${t('statLiftsUnit')}</small></dd></div>
+        <div><dt>${t('statAlt')}</dt><dd>${s.low}–${s.high}<small>m</small></dd></div>
       </dl>
-      <div class="mix" role="img" aria-label="${DIFF.map(([k, n]) => `${n}道 ${s.km[k]} km`).join('，')}">
+      <div class="mix" role="img" aria-label="${DIFF.map(([k, n]) => `${t('diff_' + k)} ${s.km[k]} km`).join(', ')}">
         ${DIFF.map(([k]) => `<i style="flex:${s.km[k]};background:${pal.trail[k]}"></i>`).join('')}
       </div>
       <div class="mix-legend">${DIFF.map(([k, n]) => `<span><i class="dot" style="background:${pal.trail[k]}"></i>${n} ${Math.round(s.km[k] / total * 100)}%</span>`).join('')}</div>
-      <p class="resort-note">${R.note} · 数据截至 ${c.osmSnapshotAt?.slice(0, 10)}</p>
-      <span class="go">开始滑 →</span>
+      <p class="resort-note">${cap(t(R.note))} · ${t('dataAsOf', { date: c.osmSnapshotAt?.slice(0, 10) })}</p>
+      <span class="go">${t('go')}</span>
     </div>
   </a>`;
 }

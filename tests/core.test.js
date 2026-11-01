@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareRoute, roundCorners, sampleRoute, heightAt, widthAt, widthIntervals, buildPisteIndex, nearestPiste, createSkier, stepSkier } from '../src/core.js';
+import { prepareRoute, roundCorners, sampleRoute, heightAt, widthAt, widthIntervals, buildPisteIndex, nearestPiste, createSkier, stepSkier, ARCADE } from '../src/core.js';
 
 const trail = { id: 'a', name: 'Test', difficulty: 'blue', points: [[0, 0, 200], [0, 100, 150], [100, 100, 100]] };
 
@@ -84,6 +84,22 @@ test('forest caps speed; hands-off follows the piste; domain edge stops the skie
   assert.ok(w.speed <= 1.5);
 });
 
+test('arcade: the faster the skier, the wider the turn; braking tightens it; tucking is faster', () => {
+  const turned = (speed, input) => {
+    const sk = createSkier(0, 0, Math.PI / 2); sk.speed = speed;
+    for (let i = 0; i < 30; i++) stepSkier(sk, { dir: 0, ...input }, plane, 1 / 60, ARCADE);
+    return { angle: Math.abs(sk.heading - Math.PI / 2), sk };
+  };
+  const slow = turned(8).angle, fast = turned(25).angle;
+  assert.ok(slow > 2 * fast, `slow ${slow} vs fast ${fast}`);
+  assert.ok(turned(25, { brake: true }).angle > 1.5 * fast);
+  const { sk } = turned(15);
+  assert.ok(sk.speed > 13 && sk.skid > 0, `speed kept through the turn: ${sk.speed}`);
+  const upright = createSkier(0, 0, Math.PI / 2), tucked = createSkier(0, 0, Math.PI / 2);
+  for (let i = 0; i < 600; i++) { stepSkier(upright, {}, plane, 1 / 60, ARCADE); stepSkier(tucked, { tuck: true }, plane, 1 / 60, ARCADE); }
+  assert.ok(tucked.speed > upright.speed + 3 && tucked.tuck);
+});
+
 test('roundCorners softens a right angle and keeps the ends', () => {
   const pts = roundCorners([[0, 0, 100], [100, 0, 90], [100, 100, 80]], 40);
   assert.deepEqual(pts[0], [0, 0, 100]);
@@ -97,4 +113,18 @@ test('roundCorners softens a right angle and keeps the ends', () => {
 test('rejects malformed and degenerate routes rather than propagating NaN', () => {
   assert.throws(() => prepareRoute({ points:[[0,0,0],[0,0,0]] }), /route/i);
   assert.throws(() => prepareRoute({ points:[[0,0,0],[1,NaN,2]] }), /route/i);
+});
+
+test('stopped on a plaza between two pistes: hands-off the skier stands still instead of spinning', () => {
+  // The nearest piste flips between two runs pointing different ways, as at a busy bottom station.
+  const flat = { gradient: () => [0, 0], surface: () => 'plaza' };
+  let flip = 0;
+  const route = { drop: 50, cumulative: [0, 100], length: 100, points: [[0, 0, 100], [0, 100, 50]] };
+  const env = { ...flat, guide: () => ({ dist: 5, width: 40, d: 10, route, tangent: (flip ^= 1) ? [1, 0] : [-1, 0], point: [0, 0] }) };
+  const sk = createSkier(0, 0, 1);
+  for (let i = 0; i < 120; i++) stepSkier(sk, {}, env, 1 / 60);
+  assert.equal(sk.heading, 1);
+  assert.equal(sk.speed, 0);
+  for (let i = 0; i < 60; i++) stepSkier(sk, { dir: Math.PI }, env, 1 / 60); // a key still turns and skates
+  assert.ok(sk.heading > 2 && sk.speed > 0);
 });
