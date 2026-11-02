@@ -132,6 +132,11 @@ const STR = {
   realSub: { zh: '真实物理和速度', en: 'real physics and speed', fr: 'physique et vitesse réelles' },
   timeScale: { zh: '速度倍数', en: 'Speed', fr: 'Vitesse' },
   timeScaleSub: { zh: '1× = 真实速度；游戏中按住 Shift 再快 {n} 倍', en: '1× = real speed; hold Shift in game for {n}× more', fr: '1× = vitesse réelle ; Maj en jeu pour ×{n} de plus' },
+  ignCredit: {
+    zh: '建筑高度、屋顶和材料：IGN BD TOPO（Licence Ouverte Etalab 2.0）。',
+    en: 'Building heights, roofs and materials: IGN BD TOPO (Licence Ouverte Etalab 2.0).',
+    fr: 'Hauteurs, toits et matériaux des bâtiments : IGN BD TOPO (Licence Ouverte Etalab 2.0).',
+  },
   search: { zh: '🔍 搜索雪道名（按 / 跳到这里）', en: '🔍 Search pistes (press / to jump here)', fr: '🔍 Chercher une piste (/ pour venir ici)' },
   noMatch: { zh: '没有叫“{q}”的雪道', en: 'No piste called “{q}”', fr: 'Aucune piste nommée « {q} »' },
   fine: {
@@ -154,7 +159,9 @@ const STR = {
   tuck: { zh: '压低', en: 'tuck', fr: 'recherche' },
   speedX: { zh: '画面 ×{x}', en: '×{x} speed', fr: 'vitesse ×{x}' },
   altitude: { zh: '海拔 {m} m', en: 'altitude {m} m', fr: 'altitude {m} m' },
-  holdShift: { zh: '按住 Shift 快进', en: 'hold Shift to fast-forward', fr: 'Maj pour accélérer' },
+  liftFast: { zh: '快进中 · 按 Shift 切换正常速度', en: 'fast-forward · Shift for normal speed', fr: 'accéléré · Maj pour la vitesse normale' },
+  liftSteer: { zh: '← → 左右移动', en: '← → move sideways', fr: '← → se décaler' },
+  liftNormal: { zh: '正常速度 · 按 Shift 切换快进', en: 'normal speed · Shift to fast-forward', fr: 'vitesse normale · Maj pour accélérer' },
   board: {
     zh: '🚡 <b>{lift}</b> · 按 <b>回车</b> 上缆车（{m} m 爬升），不上就继续滑',
     en: '🚡 <b>{lift}</b> · press <b>Enter</b> to ride up ({m} m climb), or just keep skiing',

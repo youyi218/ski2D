@@ -65,6 +65,11 @@ M = 111319.49079327358
 UA = 'ski2D-prototype/0.1 (personal research)'
 OVERPASS = 'https://overpass-api.de/api/interpreter'
 TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
+# IGN BD TOPO buildings (France only): real heights, floors, use and materials, matched onto the OSM footprints.
+IGN_WFS = ('https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3:batiment'
+           '&OUTPUTFORMAT=application/json&SORTBY=cleabs&COUNT=1000&STARTINDEX={start}&BBOX={s},{w},{n},{e},urn:ogc:def:crs:EPSG::4326')
+IGN_KEEP = ('hauteur', 'nombre_d_etages', 'usage_1', 'nature', 'materiaux_des_murs', 'materiaux_de_la_toiture',
+            'altitude_minimale_toit', 'altitude_maximale_toit', 'construction_legere')
 QUERY = """[out:xml][timeout:180][bbox:{s},{w},{n},{e}];
 (
   way["piste:type"]; relation["piste:type"]; relation["route"="piste"];
@@ -105,6 +110,21 @@ def fetch():
     for x in xs:
         for y in ys:
             subprocess.run(['curl', '--fail', '-sS', '-A', UA, '--max-time', '90', TILES.format(z=ZOOM, x=x, y=y), '-o', str(RAW / f'{ZOOM}-{x}-{y}.png')], check=True)
+
+
+def fetch_ign():
+    """Download BD TOPO buildings for the bbox, page by page, keeping only the attributes the game uses."""
+    feats, start = [], 0
+    while True:
+        page = json.loads(subprocess.run(['curl', '--fail', '-sS', '-A', UA, '--max-time', '120', IGN_WFS.format(start=start, **BBOX)],
+                                         check=True, capture_output=True).stdout)
+        for f in page['features']:
+            f['properties'] = {k: v for k, v in f['properties'].items() if k in IGN_KEEP and v not in (None, '')}
+        feats += page['features']
+        if len(page['features']) < 1000: break
+        start += 1000
+    (RAW / 'ign-batiment.geojson').write_text(json.dumps({'type': 'FeatureCollection', 'source': 'IGN BD TOPO V3 batiment', 'features': feats}, separators=(',', ':')))
+    print('IGN buildings', len(feats))
 
 
 class DEM:
@@ -150,6 +170,107 @@ def read_widths(path):
     return out
 
 
+# BD TOPO material codes (from the French land registry): first digit is the main material.
+IGN_WALL = {'1': 'stone', '2': 'stone', '3': 'concrete', '4': 'render', '5': 'concrete', '6': 'wood'}
+IGN_ROOF = {'1': 'tile', '2': 'slate', '3': 'metal', '4': 'concrete'}
+IGN_USE = {'Résidentiel': 'home', 'Commercial et services': 'shop', 'Religieux': 'church', 'Annexe': 'shed', 'Agricole': 'shed', 'Industriel': 'shed'}
+OSM_USE = {'church': 'church', 'chapel': 'church', 'apartments': 'home', 'hotel': 'home', 'house': 'home', 'detached': 'home', 'residential': 'home',
+           'chalet': 'home', 'terrace': 'home', 'retail': 'shop', 'commercial': 'shop', 'transportation': 'shop', 'civic': 'shop', 'school': 'shop',
+           'shed': 'shed', 'garage': 'shed', 'garages': 'shed', 'hut': 'shed', 'service': 'shed', 'roof': 'shed', 'carport': 'shed', 'cabin': 'shed'}
+
+
+def polygon_area(pts):
+    return sum(p[0] * q[1] - q[0] * p[1] for p, q in zip(pts, pts[1:] + pts[:1])) / 2
+
+
+def inside(pt, ring):
+    x, y, hit = pt[0], pt[1], False
+    for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1): hit = not hit
+    return hit
+
+
+def clean_ring(pts):
+    """Counter-clockwise, without vertices closer than 0.5 m or on a straight line."""
+    if polygon_area(pts) < 0: pts = pts[::-1]
+    out = []
+    for p in pts:
+        if not out or math.dist(p, out[-1]) >= .5: out.append(p)
+    changed = True
+    while changed and len(out) > 3:
+        changed = False
+        for i in range(len(out)):
+            a, b, c = out[i - 1], out[i], out[(i + 1) % len(out)]
+            if abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) < .25 * math.dist(a, c):
+                del out[i]; changed = True; break
+    return out
+
+
+def min_width(pts):
+    """Narrowest width of the footprint over the directions of its own edges (its oriented bounding box)."""
+    best = math.inf
+    for a, b in zip(pts, pts[1:] + pts[:1]):
+        L = math.dist(a, b)
+        if L < 1e-6: continue
+        nx, ny = -(b[1] - a[1]) / L, (b[0] - a[0]) / L
+        d = [p[0] * nx + p[1] * ny for p in pts]
+        best = min(best, max(d) - min(d))
+    return best
+
+
+def ign_index():
+    """IGN BD TOPO buildings in local metres, bucketed on a 50 m grid; empty when not downloaded."""
+    path = RAW / 'ign-batiment.geojson'
+    if not path.exists(): return None
+    grid = collections.defaultdict(list)
+    for f in json.loads(path.read_text())['features']:
+        polys = f['geometry']['coordinates'] if f['geometry']['type'] == 'MultiPolygon' else [f['geometry']['coordinates']]
+        for poly in polys:
+            ring = [local(lat, lon) for lon, lat, *_ in poly[0]]
+            c = (sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring))
+            grid[(int(c[0] // 50), int(c[1] // 50))].append((ring, c, {**f['properties'], 'area': abs(polygon_area(ring))}))
+    return grid
+
+
+def ign_match(grid, pts, c):
+    """The IGN building under this OSM footprint: one containing its centre, else the nearest centre within 10 m."""
+    near = [b for i in (-1, 0, 1) for j in (-1, 0, 1) for b in grid.get((int(c[0] // 50) + i, int(c[1] // 50) + j), [])]
+    hits = [b for b in near if inside(c, b[0]) or inside(b[1], pts)]
+    best = min(hits, key=lambda b: math.dist(b[1], c)) if hits else min(near, key=lambda b: math.dist(b[1], c), default=None)
+    if not best or (not hits and math.dist(best[1], c) >= 10): return None
+    # A small OSM piece inside a big IGN block (an annexe, a porch) must not inherit the block's height.
+    area = abs(polygon_area(pts))
+    return best[2] if area / 3 < best[2]['area'] < area * 3 else None
+
+
+def describe_building(t, area, pts, ign):
+    """Height, roof and materials: IGN where it has them, else OSM tags, else an estimate from the footprint."""
+    short = min_width(pts)
+    b = {'use': OSM_USE.get(t.get('building'), 'home' if area < 400 else 'shop')}
+    ign = ign or {}
+    if ign.get('construction_legere') and area < 100: b['use'] = 'shed'
+    elif ign.get('nature') in ('Chapelle', 'Eglise'): b['use'] = 'church'
+    elif ign.get('nature') == 'Fort, blockhaus, casemate': b['use'] = 'fort'
+    elif ign.get('usage_1') in IGN_USE: b['use'] = IGN_USE[ign['usage_1']]
+    levels = ign.get('nombre_d_etages') or (int(float(t['building:levels'])) if t.get('building:levels', '').replace('.', '').isdigit() else None)
+    try: h = float(ign.get('hauteur') or t.get('height', '').split()[0])
+    except (ValueError, IndexError): h = levels * 3 if levels else (9 if area > 400 else 4 if b['use'] == 'shed' else 6)
+    # A tall needle on a small footprint is a lift shaft or chimney block; keep it in proportion.
+    b['h'] = round(min(max(h, 2.5), 60, 2.5 * math.sqrt(area) + 4), 1)
+    b['floors'] = levels or max(1, round(b['h'] / 3))
+    # Pitched when the roof rises 1–8 m and no steeper than about 40°; flatter is a flat roof, steeper is
+    # a block stepped down the slope (drawn flat too).
+    rise = ign['altitude_maximale_toit'] - ign['altitude_minimale_toit'] if 'altitude_maximale_toit' in ign and 'altitude_minimale_toit' in ign else None
+    shape = t.get('roof:shape')
+    if shape == 'flat' or (rise is not None and not 1 <= rise <= min(8, max(2, short * .42))): b['roof'] = 0
+    elif rise is not None: b['roof'] = round(rise, 1)
+    else: b['roof'] = round(short * (.25 if area > 400 else .4), 1)
+    if ign.get('materiaux_des_murs', '0')[0] in IGN_WALL: b['wall'] = IGN_WALL[ign['materiaux_des_murs'][0]]
+    if ign.get('materiaux_de_la_toiture', '0')[0] in IGN_ROOF: b['top'] = IGN_ROOF[ign['materiaux_de_la_toiture'][0]]
+    if ign: b['src'] = 'ign'
+    return b
+
+
 def rings_from_relation(rel, ways):
     """Join a multipolygon's member ways into closed rings, keyed by role."""
     out = {'outer': [], 'inner': []}
@@ -174,12 +295,15 @@ def rings_from_relation(rel, ways):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--fetch', action='store_true')
+    ap.add_argument('--fetch-ign', action='store_true', help='download IGN BD TOPO buildings into raw/ign-batiment.geojson')
     ap.add_argument('--resort', choices=RESORTS, default='saint-lary')
     args = ap.parse_args()
     use(args.resort)
     out = RESORT['dir']
     if args.fetch:
         fetch()
+    if args.fetch_ign:
+        fetch_ign()
     dem = DEM()
     fix = json.loads((out / 'corrections.json').read_text())
     official = {**fix['officialPistes'], **fix['panoramaOnlyPistes']}
@@ -577,15 +701,20 @@ def main():
     forests = [[[local(*nodes[n]) for n in ids[:-1]]] for wid, ids in way_nodes.items()
                if (way_tags[wid].get('landuse') == 'forest' or way_tags[wid].get('natural') == 'wood') and len(ids) > 3 and ids[0] == ids[-1]]
     forests += rel_rings
-    buildings, restaurants = [], []
+    buildings, restaurants, ign = [], [], ign_index()
     for wid, ids in way_nodes.items():
         t = way_tags[wid]
         # Ruins and old fortifications are not huts; drawing them as chalets would mislead.
         if 'building' not in t or t['building'] in ('ruins', 'bunker') or len(ids) < 4: continue
-        pts = [local(*nodes[n]) for n in ids[:-1]]
-        a = abs(sum(p[0] * q[1] - q[0] * p[1] for p, q in zip(pts, pts[1:] + pts[:1]))) / 2
+        pts = clean_ring([local(*nodes[n]) for n in ids[:-1]])
+        if len(pts) < 3: continue
+        a = abs(polygon_area(pts))
+        # Cadastre "light constructions" (wall=no) this small are lift-pylon footings and kiosks, not buildings.
+        if a < 6 or (t.get('wall') == 'no' and a < 20): continue
         cx, cy = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
-        buildings.append({'x': round(cx, 1), 'y': round(cy, 1), 'area': round(a)})
+        match = ign_match(ign, pts, (cx, cy)) if ign else None
+        buildings.append({'x': round(cx, 1), 'y': round(cy, 1), 'area': round(a), **describe_building(t, a, pts, match),
+                          'pts': [[round(p[0] - cx, 1), round(p[1] - cy, 1)] for p in pts]})
         if t.get('amenity') in ('restaurant', 'cafe', 'bar') and t.get('name'):
             restaurants.append({'name': t['name'], 'x': round(cx, 1), 'y': round(cy, 1), 'kind': t['amenity']})
     peaks = []
@@ -602,7 +731,9 @@ def main():
         'sources': [
             {'name': '© OpenStreetMap contributors', 'license': 'ODbL 1.0', 'url': 'https://www.openstreetmap.org/copyright', 'via': OVERPASS},
             {'name': f'Mapzen Terrain Tiles / AWS, Terrarium zoom {ZOOM}', 'url': 'https://registry.opendata.aws/terrain-tiles/',
-             'attribution': 'EU-DEM (Copernicus), SRTM/GMTED2010 (USGS)'}],
+             'attribution': 'EU-DEM (Copernicus), SRTM/GMTED2010 (USGS)'}]
+            + ([{'name': 'IGN BD TOPO V3 (batiment)', 'license': 'Licence Ouverte Etalab 2.0', 'url': 'https://geoservices.ign.fr/bdtopo',
+                 'used': 'building heights, floors, roof shape, use and materials, matched onto the OSM footprints'}] if ign else []),
         'stats': {'runs': len(trails), 'lifts': len(lifts), 'pisteAreas': len(piste_areas), **stats,
                   'nodeLinks': sum(1 for t in trails for l in t['links'] if l['how'] == 'node'),
                   'gapLinks': sum(1 for t in trails for l in t['links'] if l['how'] == 'gap'),
@@ -614,7 +745,7 @@ def main():
                'source': meta['sources'][1]['name']}
     (out / 'resort.json').write_text(json.dumps({'meta': meta, 'trails': trails, 'lifts': lifts, 'plazas': plazas, 'aprons': aprons, 'domain': domain, 'pisteAreas': piste_areas, 'terrain': terrain}, ensure_ascii=False, separators=(',', ':')))
     (out / 'scenery.json').write_text(json.dumps({'forests': forests, 'buildings': buildings, 'restaurants': restaurants, 'peaks': peaks}, ensure_ascii=False, separators=(',', ':')))
-    print(json.dumps(meta['stats'], ensure_ascii=False), f'terrain {cols}x{rows}', f'forests {len(forests)} buildings {len(buildings)} restaurants {len(restaurants)}')
+    print(json.dumps(meta['stats'], ensure_ascii=False), f'terrain {cols}x{rows}', f'forests {len(forests)} buildings {len(buildings)} (IGN-matched {sum(1 for b in buildings if b.get("src") == "ign")}) restaurants {len(restaurants)}')
 
 
 if __name__ == '__main__':

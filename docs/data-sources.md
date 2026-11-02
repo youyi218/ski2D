@@ -21,7 +21,7 @@ What is read and how:
 | `route=piste` relations | name/difficulty inherited by member ways lacking them (none exist in this snapshot) |
 | `aerialway=*` ways | lifts; oriented bottom → top by DEM |
 | `landuse=forest` / `natural=wood`, ways **and multipolygon relations** | forest outlines (inner rings cut out) |
-| `building` | building position + footprint area |
+| `building` | building footprint (outline, area); tiny `wall=no` cadastre pieces (< 20 m²) are dropped |
 | `amenity=restaurant/cafe/bar` with `name` | labelled huts |
 | `natural=peak` with `name` | labels |
 
@@ -32,6 +32,16 @@ Processing rules:
 - **Names**: `piste:name`, then `name`; otherwise `Sans nom` (runs) or `Liaison` (connections). Spellings are kept as mapped.
 - **Junctions** (`links`): `node` = the two pistes share an OSM node (a real mapped junction). `near` = a piste end has no shared node, so the nearest piste within 30 m is offered and shown in-game as "数据未直接相连".
 - **Lifts**: exits = pistes passing within 80 m of the top station; entries = pistes passing within 80 m of the bottom. These are proximity guesses; OSM does not link lifts to pistes.
+
+## 3. IGN BD TOPO buildings (France)
+
+[IGN BD TOPO V3](https://geoservices.ign.fr/bdtopo), layer `batiment`, Licence Ouverte Etalab 2.0. Downloaded per resort with `scripts/build_resort.py --resort <slug> --fetch-ign` into `raw/ign-batiment.geojson` (only the attributes below are kept). Each OSM footprint takes the IGN building under its centre (or the nearest within 10 m) when their areas are within ×3 of each other, and from it:
+
+- `h`: `hauteur` (capped at 2.5 × √area + 4 m so a lift shaft is not a needle); `floors`: `nombre_d_etages`
+- `roof`: rise of the gable in metres, from `altitude_maximale_toit − altitude_minimale_toit`; 0 (flat) when it is under 1 m, or steeper than ~40° / over 8 m (a block stepped down the slope)
+- `use` (home / shop / church / shed / fort) from `usage_1`, `nature` and `construction_legere`; `wall` / `top` materials from `materiaux_des_murs` / `materiaux_de_la_toiture` where filled in
+
+Unmatched buildings fall back to OSM tags (`height`, `building:levels`, `roof:shape`, `building=*`) and then to estimates from the footprint. Resorts without the IGN file keep the old position-and-area buildings. Currently only Isola 2000 has it.
 
 ## Corrections from official resort data
 

@@ -149,6 +149,13 @@ export const SKI = {
   grip: 0, skidGrip: 1,
 };
 
+// Real line speed of each lift type (m/s). The lifts on the mountain run at this speed in game time;
+// the player's own ride is fast-forwarded unless they switch to normal speed.
+export const LIFT_SPEED = { chair_lift: 5, mixed_lift: 5, gondola: 6, cable_car: 10, platter: 3, 't-bar': 3, 'j-bar': 3, drag_lift: 3, rope_tow: 2.5, magic_carpet: 1 };
+export const liftSpeed = type => LIFT_SPEED[type] || 4;
+// Drag lifts: the skier stands on their skis and is pulled up the track.
+export const DRAG_LIFTS = new Set(['platter', 't-bar', 'j-bar', 'drag_lift', 'rope_tow']);
+
 // Arcade feel: snappy carving that keeps speed, less friction, a tuck to go faster, fun powder,
 // and a minimum glide on pistes. The mountain stays real; only the skier cheats.
 export const ARCADE = {

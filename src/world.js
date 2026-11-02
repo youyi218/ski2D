@@ -224,8 +224,10 @@ export function placeEntities(frame, routes, lifts, scenery, masks) {
       const { position: p, tangent: t } = sampleRoute(r, d);
       const half = widthAt(r, d) / 2 + 1;
       for (const side of [-1, 1]) {
-        const x = p[0] + t[1] * half * side, y = p[1] - t[0] * half * side, [px, py] = frame.toPx(x, y);
-        // No poles in the middle of open snow (another piste or a station plaza).
+        const x = p[0] + t[1] * half * side, y = p[1] - t[0] * half * side;
+        // No poles in the middle of open snow (another piste or a station plaza). Tested 2 m further out,
+        // past the blur of this piste's own edge in the 2 m-per-pixel mask.
+        const [px, py] = frame.toPx(x + t[1] * 2 * side, y - t[0] * 2 * side);
         if (px >= 0 && py >= 0 && px < frame.w && py < frame.h && !maskAt(px, py, 1)) add('pole-' + r.difficulty, x, y);
       }
     }

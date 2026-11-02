@@ -1,4 +1,4 @@
-import { prepareRoute, roundCorners, sampleRoute, heightAt, clamp, buildPisteIndex, nearestPiste, createSkier, stepSkier, SKI, ARCADE, seededRandom } from './core.js';
+import { prepareRoute, roundCorners, sampleRoute, heightAt, clamp, buildPisteIndex, nearestPiste, createSkier, stepSkier, SKI, ARCADE, seededRandom, liftSpeed, DRAG_LIFTS } from './core.js';
 import { PALETTES } from './palettes.js';
 import { buildSprites } from './sprites.js';
 import { makeFrame, makeGeometry, drawMasks, GroundTiles, bakeOverview, placeEntities, TILE_M, TILE_MPP, RES } from './world.js';
@@ -78,7 +78,7 @@ function bakeMinimap() {
 }
 
 // ---------- Game state ----------
-const state = { mode: 'menu', palette: 'warm', angle: 0, skier: null, here: null, lift: null, liftD: 0, t: 0, cam: null, pose: 'skier', liftCooldown: 0 };
+const state = { mode: 'menu', palette: 'warm', angle: 0, skier: null, here: null, lift: null, liftD: 0, liftFast: true, t: 0, liftClock: 0, cam: null, pose: 'skier', liftCooldown: 0 };
 // Feel: 'arcade' (default, snappy and fast) or 'real' (real-world physics), remembered per browser.
 const loadFeel = () => { try { return localStorage.getItem('ski2d.feel') === 'real' ? 'real' : 'arcade'; } catch { return 'arcade'; } };
 state.feel = loadFeel();
@@ -100,7 +100,12 @@ const SCALE = { min: 1, max: 3, step: .1, shift: 3 };
 const loadScale = () => { try { const v = +localStorage.getItem('ski2d.timeScale'); return v >= SCALE.min && v <= SCALE.max ? v : 1; } catch { return 1; } };
 state.timeScale = loadScale();
 // Chairlifts run at 3× their real ~5 m/s even at 1× so rides stay short (5× in arcade).
-const LIFT_SPEED = { real: 15, arcade: 25 };
+// The player's own ride, fast-forwarded (m/s along the map); Shift on the lift switches to the lift's real speed.
+const LIFT_FAST = { real: 15, arcade: 25 };
+// Per lift, the shift of its 2D chairs that puts one chair exactly where the player rides.
+const liftPhase = new Map();
+// On a drag lift the rider can drift this far either side of the line (m), at this speed (m/s).
+const DRAG_SIDE = 1.8, DRAG_STEP = 1.5;
 // Ski within this many metres of a lift's bottom station to board it.
 const LIFT_BOARD_RADIUS = 25;
 
@@ -134,7 +139,7 @@ function showMenu() {
     <label class="scale" ${state.feel === 'arcade' ? 'hidden' : ''}>${t('timeScale')} <input id="scale" type="range" min="${SCALE.min}" max="${SCALE.max}" step="${SCALE.step}" value="${state.timeScale}"> <b id="scaleOut">${state.timeScale.toFixed(1)}×</b><small>${t('timeScaleSub', { n: SCALE.shift })}</small></label>
     <input id="search" class="search" type="search" placeholder="${t('search')}" autocomplete="off" spellcheck="false">
     <div class="list" id="routes"></div>
-    <p class="fine">${t('fine', { date: resort.meta.osmSnapshotAt?.slice(0, 10), note: t(R.note) })}</p></div>`;
+    <p class="fine">${t('fine', { date: resort.meta.osmSnapshotAt?.slice(0, 10), note: t(R.note) })}${resort.meta.sources.some(x => x.name.startsWith('IGN')) ? ' ' + t('ignCredit') : ''}</p></div>`;
   showRoutes('');
 }
 
@@ -195,6 +200,7 @@ addEventListener('keydown', e => {
   if (['1', '2', '3'].includes(e.key)) setPalette(Object.keys(PALETTES)[+e.key - 1]);
   sound.wake();
   if (e.key === 'm' || e.key === 'M') sound.toggle();
+  if (e.key === 'Shift' && !e.repeat && state.mode === 'lift') state.liftFast = !state.liftFast;
   if (e.key === 'v' || e.key === 'V') setView(state.view === '3d' ? '2d' : '3d');
   if (e.key === 'Enter' && state.mode === 'ski' && state.canBoard) { boardLift(state.canBoard); e.preventDefault(); return; }
   if (e.key === 'Escape') state.mode === 'menu' ? resume() : showMenu();
@@ -205,7 +211,7 @@ addEventListener('blur', () => keys.clear());
 
 // ---------- Lift boarding: in the station, Enter boards; the run never pauses ----------
 function boardLift(l) {
-  state.mode = 'lift'; state.lift = l; state.liftD = 0; state.canBoard = null;
+  state.mode = 'lift'; state.lift = l; state.liftD = 0; state.canBoard = null; state.liftFast = true; state.liftSide = 0;
 }
 
 // ---------- Simulation ----------
@@ -258,9 +264,16 @@ function dirFromKeys(sideOnly) {
 
 function update(dt) {
   // Run the simulation faster than real time by stepping it in equal sub-steps.
-  const scale = (state.feel === 'arcade' ? ARCADE.time : state.timeScale) * (keys.has('Shift') ? SCALE.shift : 1);
+  // On a lift Shift is a toggle (fast / normal), not a held fast-forward.
+  const base = state.feel === 'arcade' ? ARCADE.time : state.timeScale;
+  const scale = base * (keys.has('Shift') && state.mode !== 'lift' ? SCALE.shift : 1);
   const steps = Math.ceil(scale), sdt = dt * scale / steps;
   state.t += dt;
+  // Lift time: every lift runs at its real speed in game time; while the player rides fast, all lifts
+  // fast-forward together so the player's chair keeps its place in the line.
+  const riding = state.mode === 'lift' && state.lift;
+  const rideSpeed = riding ? (state.liftFast ? LIFT_FAST[state.feel] : liftSpeed(riding.type)) * base : 0;
+  state.liftClock += riding ? dt * rideSpeed / liftSpeed(riding.type) : dt * scale;
   let target = null, anchor = .38;
   if (state.mode === 'ski') {
     const sk = state.skier;
@@ -297,7 +310,12 @@ function update(dt) {
   } else if (state.mode === 'lift') {
     sound.silence();
     const l = state.lift;
-    state.liftD = Math.min(l.length, state.liftD + LIFT_SPEED[state.feel] * scale * dt);
+    state.liftD = Math.min(l.length, state.liftD + rideSpeed * dt);
+    // On a drag lift ← → step sideways in the track (metres left of the line, as the rider faces uphill).
+    if (DRAG_LIFTS.has(l.type)) {
+      const steer = (keys.has('ArrowLeft') || keys.has('a') ? 1 : 0) - (keys.has('ArrowRight') || keys.has('d') ? 1 : 0);
+      state.liftSide = clamp((state.liftSide || 0) + steer * DRAG_STEP * dt, -DRAG_SIDE, DRAG_SIDE);
+    }
     const p = sampleRoute(l, state.liftD).position;
     state.target = [p[0], p[1]]; state.alt = p[2]; anchor = .62;
     target = headingAngle(sampleRoute(l, state.liftD + 120).position, sampleRoute(l, state.liftD).position);
@@ -454,7 +472,8 @@ function renderViews(dt) {
   const want = state.view === '3d' ? 1 : 0;
   if (view3d || !want) state.blend = want > state.blend ? Math.min(want, state.blend + dt / VIEW_TIME) : Math.max(want, state.blend - dt / VIEW_TIME);
   if (want && !view3d && state.mode !== 'menu') { render3d(dt); return; } // loads it; the 2D map shows meanwhile
-  if (state.mode === 'menu' || !state.blend) {
+  // Also while the 3D view is still loading (switched back to 2D before it was ready).
+  if (state.mode === 'menu' || !state.blend || !view3d) {
     if (view3d) view3d.canvas.hidden = true;
     view.hidden = false; render(); return;
   }
@@ -595,7 +614,11 @@ function render() {
     const pts = l.points.map(p => { const [x, y] = proj(p[0], p[1]); return [x, y - CABLE]; });
     if (pts.every(([x, y]) => x < -50 || x > W + 50 || y < -50 || y > H + 50) && !(state.lift === l)) continue;
     for (let i = 1; i < pts.length; i++) pixelLine(g, ...pts[i - 1], ...pts[i]);
-    for (let d = (state.t * 15) % 70; d < l.length; d += 70) {
+    // The lift the player rides is shifted so one chair is exactly the player's (even gaps ahead and
+    // behind); the shift is kept after getting off so nothing jumps.
+    const run = state.liftClock * liftSpeed(l.type);
+    if (state.lift === l) liftPhase.set(l, ((state.liftD - run) % 70 + 70) % 70);
+    for (let d = (run + (liftPhase.get(l) || 0)) % 70; d < l.length; d += 70) {
       if (state.lift === l && Math.abs(d - state.liftD) < 20) continue;
       const p = sampleRoute(l, d).position, [x, y] = proj(p[0], p[1]);
       g.drawImage(sprites.chair, x - 3, y - CABLE);
@@ -795,7 +818,7 @@ function updateHud() {
     if (nl) prompt.innerHTML = state.canBoard ? t('board', { lift: nl.lift.name, m: Math.round(nl.lift.points.at(-1)[2] - nl.lift.points[0][2]) })
       : t('liftAhead', { lift: nl.lift.name });
   } else if (state.mode === 'lift') {
-    $('hud').innerHTML = `<b>🚡 ${state.lift.name}</b><span>${t('altitude', { m: Math.round(state.alt) })} · ${t('holdShift')}</span><div class="bar"><i style="width:${(state.liftD / state.lift.length * 100).toFixed(1)}%"></i></div>`;
+    $('hud').innerHTML = `<b>🚡 ${state.lift.name}</b><span>${t('altitude', { m: Math.round(state.alt) })} · ${t(state.liftFast ? 'liftFast' : 'liftNormal')}${DRAG_LIFTS.has(state.lift.type) ? ' · ' + t('liftSteer') : ''}</span><div class="bar"><i style="width:${(state.liftD / state.lift.length * 100).toFixed(1)}%"></i></div>`;
     prompt.hidden = true;
   } else prompt.hidden = true;
 }

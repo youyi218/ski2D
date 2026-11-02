@@ -2,7 +2,7 @@
 // World: x east, y north, z altitude (metres); Three.js is y-up, so world (x, y, z) → (x, z, −y).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { sampleRoute, widthAt } from './core.js';
+import { sampleRoute, widthAt, liftSpeed, DRAG_LIFTS } from './core.js';
 
 const v3 = (x, y, z) => new THREE.Vector3(x, z, -y);
 const mat = c => new THREE.MeshLambertMaterial({ color: c });
@@ -10,12 +10,14 @@ const mat = c => new THREE.MeshLambertMaterial({ color: c });
 const boxAt = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
 
 // Per lift type: tower height, half the gap between the two cable lines, station size [long, wide, tall],
-// carrier spacing and speed (m/s), and how deep the cable sags (fraction of the span).
+// carrier spacing (m), and how deep the cable sags (fraction of the span). Carriers move at the lift's
+// real speed (liftSpeed in core.js) in lift time (see update()).
+const DRAG_ARM = 2.5; // how far a drag lift's towers stand beside the track (m)
 const LIFT = {
-  chair_lift: { tower: 10, gauge: 2.6, station: [14, 9, 5], every: 30, speed: 5, sag: .025 },
-  gondola: { tower: 14, gauge: 3, station: [22, 11, 7], every: 70, speed: 6, sag: .025 },
-  cable_car: { tower: 32, gauge: 4, station: [22, 13, 10], every: Infinity, speed: 10, sag: .045 },
-  platter: { tower: 6, gauge: 0, station: [4, 3, 3], every: 14, speed: 3, sag: .01 },
+  chair_lift: { tower: 10, gauge: 2.6, station: [14, 9, 5], every: 30, sag: .025 },
+  gondola: { tower: 14, gauge: 3, station: [22, 11, 7], every: 70, sag: .025 },
+  cable_car: { tower: 32, gauge: 4, station: [22, 13, 10], every: Infinity, sag: .045 },
+  platter: { tower: 6, gauge: 0, station: [4, 3, 3], every: 14, sag: .01 },
 };
 
 // Carriers, built facing +x with the grip on the cable at the origin.
@@ -50,23 +52,16 @@ function sampleCable(c, d, out, dir) {
 }
 
 // Towers, cables, stations and moving carriers. Lifts must run bottom → top (prepareRoute(l, true)).
-// Returns update(seconds, riding) to run the carriers (hiding the one the player would overlap) and
+// Returns update(clock, riding) to run the carriers (clock = lift time in seconds; each lift has run
+// clock × its speed along its map route, and the 3D cable, longer for its slope and sag, proportionally further) (hiding the one the player would overlap) and
 // ride(lift, fraction, pos, dir) to place a rider on the up line; ride() returns the lift type.
-export function buildLifts(scene, lifts, ground, pal) {
+export function buildLifts(scene, lifts, ground, pal, surface = ground) {
   const towers = [], arms = [], cables = [], lines = [], upLine = new Map();
   const carriers = { chair_lift: [], gondola: [], cable_car: [], platter: [] };
   for (const l of lifts) {
     const P = l.points.map(([x, y]) => [x, y, ground(x, y)]);
-    if (l.type === 'magic_carpet') { // a conveyor belt lying on the snow
-      for (let i = 1; i < P.length; i++) {
-        const a = v3(...P[i - 1]).add(new THREE.Vector3(0, .15, 0)), b = v3(...P[i]).add(new THREE.Vector3(0, .15, 0));
-        const m = new THREE.Mesh(new THREE.BoxGeometry(a.distanceTo(b), .3, 1.2), mat(pal.lift));
-        m.position.copy(a).lerp(b, .5); m.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), b.clone().sub(a).normalize());
-        scene.add(m);
-      }
-      continue;
-    }
-    const spec = LIFT[l.type] || LIFT.chair_lift;
+    if (l.type === 'magic_carpet') { scene.add(carpetMesh(l, surface, pal)); continue; }
+    const kind = LIFT[l.type] ? l.type : DRAG_LIFTS.has(l.type) ? 'platter' : 'chair_lift', spec = LIFT[kind];
     // Sideways direction at each support: the average of the spans either side, in world x/y.
     const side = P.map((_, i) => {
       const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
@@ -76,16 +71,23 @@ export function buildLifts(scene, lifts, ground, pal) {
     for (const lane of spec.gauge ? [1, -1] : [1]) {
       const supports = P.map(([x, y, z], i) => v3(x + side[i][0] * spec.gauge * lane, y + side[i][1] * spec.gauge * lane, z + (ends.includes(i) ? stationH : spec.tower)));
       const c = cablePath(lane > 0 ? supports : supports.reverse(), spec.sag);
-      if (lane > 0) upLine.set(l.id, { cable: c, type: spec === LIFT[l.type] ? l.type : 'chair_lift' });
+      if (lane > 0) upLine.set(l.id, { cable: c, type: kind });
       cables.push(c); lines.push(...c.pts.flatMap((p, i) => i ? [c.pts[i - 1], p] : []));
-      if (spec.every < Infinity) carriers[l.type]?.push({ cable: c, every: spec.every, speed: spec.speed });
-      else carriers[l.type]?.push({ cable: c, every: c.length, speed: spec.speed, shuttle: true });
+      if (spec.every < Infinity) carriers[kind].push({ cable: c, every: spec.every, rate: liftSpeed(l.type) * c.length / l.length });
+      else carriers[kind].push({ cable: c, every: c.length, rate: liftSpeed(l.type) * c.length / l.length, shuttle: true });
     }
-    // Towers on every middle node, with a crossarm carrying both lines.
+    // Towers on every middle node, with a crossarm carrying both lines. A drag lift's tower stands
+    // DRAG_ARM metres to the side of the track, its arm reaching out over it, so riders pass beside it.
     for (let i = 1; i < P.length - 1; i++) {
-      const [x, y, z] = P[i], yaw = Math.atan2(side[i][1], side[i][0]);
-      towers.push({ x, y, z, h: spec.tower, w: spec.tower > 20 ? 2 : spec.tower > 8 ? .7 : .35 });
-      if (spec.gauge) arms.push({ x, y, z: z + spec.tower, yaw, len: spec.gauge * 2 + 1 });
+      const [x, y, z] = P[i], yaw = Math.atan2(side[i][1], side[i][0]), w = spec.tower > 20 ? 2 : spec.tower > 8 ? .7 : .35;
+      if (spec.gauge) {
+        towers.push({ x, y, z, h: spec.tower, w });
+        arms.push({ x, y, z: z + spec.tower, yaw, len: spec.gauge * 2 + 1 });
+      } else {
+        const [sx, sy] = side[i], tx = x + sx * DRAG_ARM, ty = y + sy * DRAG_ARM;
+        towers.push({ x: tx, y: ty, z: Math.min(z, ground(tx, ty)), h: spec.tower + Math.max(0, z - ground(tx, ty)), w });
+        arms.push({ x: x + sx * DRAG_ARM / 2, y: y + sy * DRAG_ARM / 2, z: z + spec.tower, yaw, len: DRAG_ARM + .4 });
+      }
     }
     // Stations at both ends: an open shed on four pillars (skiers pass under it), set back past the
     // end of the line, with the bullwheel under the roof and a control cabin to one side.
@@ -120,7 +122,7 @@ export function buildLifts(scene, lifts, ground, pal) {
   // Carriers: one instanced mesh per type, moved along their cables every frame.
   const colors = { chair_lift: pal.lift, gondola: pal.roof, cable_car: pal.roof, platter: pal.lift };
   const fleets = Object.entries(carriers).filter(([, list]) => list.length).map(([type, list]) => {
-    const count = list.reduce((n, c) => n + (c.shuttle ? 1 : Math.floor(c.cable.length / c.every)), 0);
+    const count = list.reduce((n, c) => n + (c.shuttle ? 1 : Math.max(1, Math.round(c.cable.length / c.every))), 0);
     const mesh = new THREE.InstancedMesh(carrierGeometry(type), mat(colors[type]), count);
     mesh.frustumCulled = false; scene.add(mesh);
     return { mesh, list };
@@ -132,19 +134,23 @@ export function buildLifts(scene, lifts, ground, pal) {
     return { type: u.type, cable: u.cable, d: f * u.cable.length };
   };
   const hidden = new THREE.Vector3(0, 0, 0);
-  function update(t, riding) {
+  function update(clock, riding) {
     for (const { mesh, list } of fleets) {
       let k = 0;
       for (const c of list) {
-        const L = c.cable.length;
+        // Carriers spaced evenly round the loop (about `every` apart), so the spacing holds where the line wraps.
+        const L = c.cable.length, cr = clock * c.rate, n = Math.max(1, Math.round(L / c.every)), gap = L / n;
+        // The line the player rides is shifted so one of its carriers is exactly the player's: even gaps
+        // ahead and behind. The shift is kept after getting off, so nothing jumps then.
+        if (riding && riding.cable === c.cable && !c.shuttle) c.phase = ((riding.d - cr) % gap + gap) % gap;
         // A cable car shuttles: up one line while its twin comes down the other, pausing at each end.
-        const ds = c.shuttle ? [L * THREE.MathUtils.smoothstep(Math.abs(((t * c.speed / L) % 2) - 1) * 1.2 - .1, 0, 1)]
-          : Array.from({ length: Math.floor(L / c.every) }, (_, j) => (t * c.speed + j * c.every) % L);
+        const ds = c.shuttle ? [L * THREE.MathUtils.smoothstep(Math.abs(((cr / L) % 2) - 1) * 1.2 - .1, 0, 1)]
+          : Array.from({ length: n }, (_, j) => (cr + (c.phase || 0) + j * gap) % L);
         for (const d of ds) {
           sampleCable(c.cable, d, pos, dir);
           q.setFromAxisAngle(up, Math.atan2(-dir.z, dir.x));
           // The player's own carrier is drawn separately; drop any chair it would pass through.
-          const clash = riding && riding.cable === c.cable && Math.abs(d - riding.d) < Math.min(c.every, 40) / 2;
+          const clash = riding && riding.cable === c.cable && Math.abs(d - riding.d) < Math.min(gap, 40) / 2;
           mesh.setMatrixAt(k++, m.compose(pos, q, clash ? hidden : one));
         }
       }
@@ -154,43 +160,139 @@ export function buildLifts(scene, lifts, ground, pal) {
   return { update, ride };
 }
 
-// Houses and stations from the OSM footprints: walls, a pitched roof and snow on top, ridge along the slope's contour.
-export function buildBuildings(scene, buildings, ground, pal, gradient) {
-  // Triangular prism 1 × 1 × 1: ridge along x, apex at y = 1.
-  const prism = new THREE.BufferGeometry();
-  const P = [[-.5, 0, -.5], [-.5, 0, .5], [-.5, 1, 0], [.5, 0, -.5], [.5, 0, .5], [.5, 1, 0]];
-  const tri = [0, 1, 2, 3, 5, 4, 0, 2, 5, 0, 5, 3, 1, 4, 5, 1, 5, 2, 0, 3, 4, 0, 4, 1];
-  prism.setAttribute('position', new THREE.Float32BufferAttribute(tri.flatMap(i => P[i]), 3)); prism.computeVertexNormals();
-  const n = buildings.length;
-  const walls = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#ffffff'), n);
-  const two = c => new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide });
-  const roofs = new THREE.InstancedMesh(prism, two(pal.roof), n), snow = new THREE.InstancedMesh(prism, two(pal.roofSnow), n);
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-  const wood = new THREE.Color(pal.wall), stone = new THREE.Color(pal.stone);
-  buildings.forEach((b, i) => {
-    const big = b.area > 400, side = Math.sqrt(b.area), len = big ? side * 1.3 : side * 1.15, wide = b.area / len;
-    const [gx, gy] = gradient(b.x, b.y), yaw = Math.hypot(gx, gy) > .02 ? Math.atan2(gx, -gy) : (i * 2.4) % Math.PI;
-    const h = big ? 9 : 5 + (i % 3), roofH = wide * (big ? .25 : .45);
-    // Sit on the lowest corner so the downhill side never floats.
-    const r = Math.hypot(len, wide) / 2, base = Math.min(ground(b.x, b.y), ground(b.x + r, b.y), ground(b.x - r, b.y), ground(b.x, b.y + r), ground(b.x, b.y - r)) - .5;
-    q.setFromAxisAngle(up, yaw);
-    walls.setMatrixAt(i, m.compose(v3(b.x, b.y, base + h / 2), q, s.set(len, h, wide)));
-    walls.setColorAt(i, big ? stone : wood);
-    roofs.setMatrixAt(i, m.compose(v3(b.x, b.y, base + h - .1), q, s.set(len + 1.2, roofH, wide + 1.6)));
-    snow.setMatrixAt(i, m.compose(v3(b.x, b.y, base + h + .25), q, s.set(len + .8, roofH, wide + 1)));
-  });
-  scene.add(walls, roofs, snow);
+// A conveyor belt draped on the snow: sampled every 2 m so it follows every bump, its top CARPET_TOP above
+// the drawn snow surface (where the rider stands), with side skirts reaching below it so no gap shows.
+export const CARPET_TOP = .25;
+function carpetMesh(l, ground, pal) {
+  const half = .6, pos = [], idx = [];
+  for (let d = 0, n = Math.ceil(l.length / 2); d <= n; d++) {
+    const { position: [x, y], tangent: [tx, ty] } = sampleRoute(l, Math.min(l.length, d * 2));
+    const g = ground(x, y), k = pos.length / 3;
+    // Four points across: left skirt foot, left top, right top, right skirt foot.
+    for (const [o, z] of [[-half, g - .3], [-half, g + CARPET_TOP], [half, g + CARPET_TOP], [half, g - .3]]) pos.push(...v3(x + ty * o, y - tx * o, z).toArray());
+    if (d) for (let j = 0; j < 3; j++) idx.push(k - 4 + j, k + j, k - 3 + j, k - 3 + j, k + j, k + 1 + j);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: pal.lift, side: THREE.DoubleSide }));
 }
 
-// Piste-edge poles every 30 m on both sides, in each piste's difficulty colour.
-export function buildPoles(scene, trails, ground, pal) {
+// Buildings extruded from their real footprints (OSM outline; height, roof and materials from IGN BD TOPO
+// where matched). Pitched roofs are a gable along the footprint's long axis, cut to the outline; flat roofs
+// carry snow. All buildings are merged into one mesh coloured per vertex.
+export function buildBuildings(scene, buildings, ground, pal, gradient) {
+  const C = c => new THREE.Color(c), mix = (a, b, t) => C(a).lerp(C(b), t);
+  const WALL = { stone: C(pal.stone), wood: C(pal.wall), concrete: mix(pal.stone, pal.snow[0], .55), render: mix(pal.wall, pal.snow[0], .7) };
+  const ROOF = { tile: C(pal.roof), slate: mix(pal.stone, pal.ink, .45), metal: mix(pal.stone, pal.leaf[1], .35), concrete: C(pal.stone) };
+  const snow = C(pal.roofSnow), shed = C(pal.wallDark);
+  const pos = [], col = [];
+  const tri = (a, b, c, k) => { for (const p of [a, b, c]) { pos.push(p[0], p[2], -p[1]); col.push(k.r, k.g, k.b); } };
+  // Wall strip between two heights at each end of edge a → b (heights absolute).
+  const strip = (a, b, a0, b0, a1, b1, k) => {
+    if (a1 - a0 < .01 && b1 - b0 < .01) return;
+    tri([a[0], a[1], a0], [b[0], b[1], b0], [b[0], b[1], b1], k); tri([a[0], a[1], a0], [b[0], b[1], b1], [a[0], a[1], a1], k);
+  };
+  const hash = (x, y) => ((Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1 + 1) % 1;
+  for (const b of buildings) {
+    const pts = (b.pts || rectangle(b, gradient)).map(([dx, dy]) => [b.x + dx, b.y + dy]);
+    const n = pts.length, h = b.h || (b.area > 400 ? 9 : 6), rise = b.roof ?? Math.sqrt(b.area) * (b.area > 400 ? .2 : .35), r = hash(b.x, b.y);
+    // Ridge along the edge direction that gives the narrowest width (the long axis).
+    let best = { w: Infinity };
+    for (let i = 0; i < n; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n], L = Math.hypot(bx - ax, by - ay);
+      if (L < 1e-6) continue;
+      const nx = -(by - ay) / L, ny = (bx - ax) / L, d = pts.map(p => p[0] * nx + p[1] * ny);
+      const w = Math.max(...d) - Math.min(...d);
+      if (w < best.w) best = { w, nx, ny, mid: (Math.max(...d) + Math.min(...d)) / 2 };
+    }
+    const side = p => p[0] * best.nx + p[1] * best.ny - best.mid;
+    const lift = p => rise * Math.max(0, 1 - Math.abs(side(p)) / (best.w / 2));
+    // Split edges where they cross the ridge so every wall top and roof face is a straight line.
+    const ring = [];
+    for (let i = 0; i < n; i++) {
+      const p = pts[i], q = pts[(i + 1) % n], sp = side(p), sq = side(q);
+      ring.push(p);
+      if (rise > 0 && sp * sq < 0) { const t = sp / (sp - sq); ring.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
+    }
+    // Sit on the lowest corner so the downhill side never floats.
+    const base = Math.min(...ring.map(p => ground(p[0], p[1]))) - .5, eave = base + .5 + h;
+    const top = p => eave + lift(p);
+    // Materials: IGN's where known; otherwise churches and forts in stone, tall blocks in concrete,
+    // sheds in dark wood, houses wood or render with a stone ground floor.
+    const tall = h > 12 || b.use === 'shop' && b.area > 400;
+    const wall = WALL[b.wall] || (b.use === 'church' || b.use === 'fort' ? WALL.stone : b.use === 'shed' ? shed : tall ? WALL.concrete : r < .6 ? WALL.wood : WALL.render);
+    const plinth = !b.wall && b.use === 'home' && !tall ? WALL.stone : null;
+    const roofCol = ROOF[b.top] || (rise > 0 ? (b.use === 'shed' ? ROOF.metal : r < .75 ? ROOF.tile : ROOF.slate) : ROOF.concrete);
+    const glass = wall.clone().multiplyScalar(.45);
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i], q = ring[(i + 1) % ring.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      const tp = top(p), tq = top(q), gp = ground(p[0], p[1]), gq = ground(q[0], q[1]);
+      // Stone plinth up to 2.4 m above the local ground, wall, then a 0.5 m eave band in the roof colour.
+      const sp = plinth ? Math.min(gp + 2.4, tp - .5) : base, sq = plinth ? Math.min(gq + 2.4, tq - .5) : base;
+      if (plinth) strip(p, q, base, base, sp, sq, plinth);
+      strip(p, q, sp, sq, tp - .5, tq - .5, wall);
+      strip(p, q, tp - .5, tq - .5, tp, tq, roofCol);
+      // A darker window row on each floor above the ground, on walls long enough to have windows.
+      if (L < 4 || b.use === 'shed' || b.use === 'fort') continue;
+      const ox = (q[1] - p[1]) / L * .08, oy = -(q[0] - p[0]) / L * .08, inset = Math.min(1, L / 5);
+      const a = [p[0] + (q[0] - p[0]) * inset / L + ox, p[1] + (q[1] - p[1]) * inset / L + oy];
+      const c = [q[0] - (q[0] - p[0]) * inset / L + ox, q[1] - (q[1] - p[1]) * inset / L + oy];
+      const floors = Math.max(1, Math.min(b.floors || Math.round(h / 3), Math.floor(h / 2.6))), fh = h / floors;
+      for (let f = 0; f < floors; f++) {
+        const z0 = eave - h + f * fh + fh * .35, z1 = z0 + fh * .38;
+        if (z0 < Math.max(gp, gq) + .3) continue; // buried on the uphill side
+        strip(a, c, z0, z0, z1, z1, glass);
+      }
+    }
+    // Roof: one face per side of the ridge (only one for a flat roof), triangulated inside the outline.
+    for (const half of rise > 0 ? [1, -1] : [0]) {
+      const poly = half ? clipHalf(ring, p => side(p) * half) : ring;
+      if (poly.length < 3) continue;
+      const faces = THREE.ShapeUtils.triangulateShape(poly.map(p => new THREE.Vector2(p[0], p[1])), []);
+      for (const [i, j, k] of faces) {
+        const [A, B, D] = [poly[i], poly[j], poly[k]].map(p => [p[0], p[1], top(p) + .05]);
+        // Make every roof triangle face up.
+        if ((B[0] - A[0]) * (D[1] - A[1]) - (B[1] - A[1]) * (D[0] - A[0]) > 0) tri(A, B, D, snow); else tri(A, D, B, snow);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+}
+
+// The part of a polygon where f(p) ≥ 0 (f linear), Sutherland–Hodgman.
+function clipHalf(poly, f) {
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i], q = poly[(i + 1) % poly.length], fp = f(p), fq = f(q);
+    if (fp >= -1e-6) out.push(p);
+    if ((fp > 1e-6 && fq < -1e-6) || (fp < -1e-6 && fq > 1e-6)) { const t = fp / (fp - fq); out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
+  }
+  return out;
+}
+
+// Footprint for a building known only by position and area (restaurants mapped as a point): a rectangle
+// with its long side along the contour.
+function rectangle(b, gradient) {
+  const [gx, gy] = gradient(b.x, b.y), yaw = Math.hypot(gx, gy) > .02 ? Math.atan2(gy, gx) + Math.PI / 2 : 0;
+  const len = Math.sqrt(b.area) * 1.2, wide = b.area / len, c = Math.cos(yaw), s = Math.sin(yaw);
+  return [[-len, -wide], [len, -wide], [len, wide], [-len, wide]].map(([u, v]) => [(u * c - v * s) / 2, (u * s + v * c) / 2]);
+}
+
+// Piste-edge poles every 30 m on both sides, in each piste's difficulty colour. onPiste(x, y) says whether
+// a spot is on any piste or plaza: a pole there would stand in the middle of a crossing piste, so it is left out.
+export function buildPoles(scene, trails, ground, pal, onPiste) {
   const poles = [];
   for (const r of trails) {
     if (r.kind === 'connection') continue;
     const color = new THREE.Color(pal.trail[r.difficulty] || pal.trail.unknown);
     for (let d = 15; d < r.length - 10; d += 30) {
       const { position: [x, y], tangent: [tx, ty] } = sampleRoute(r, d), w = widthAt(r, d) / 2 + 1;
-      poles.push([x - ty * w, y + tx * w, color], [x + ty * w, y - tx * w, color]);
+      // Tested 2 m further out, past the blur of this piste's own edge in the 2 m-per-pixel mask.
+      for (const k of [-1, 1]) if (!onPiste(x + ty * k * (w + 2), y - tx * k * (w + 2))) poles.push([x + ty * k * w, y - tx * k * w, color]);
     }
   }
   const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(.25, 2, .25), mat('#ffffff'), poles.length), m = new THREE.Matrix4();

@@ -3,7 +3,7 @@
 // World: x east, y north, z altitude (metres). Three.js is y-up, so world (x, y, z) → (x, z, −y).
 import * as THREE from 'three';
 import { heightAt, sampleRoute } from './core.js';
-import { buildLifts, buildBuildings, buildPoles, buildForest, carrierGeometry } from './world3d.js';
+import { buildLifts, buildBuildings, buildPoles, buildForest, carrierGeometry, CARPET_TOP } from './world3d.js';
 
 const v3 = (x, y, z) => new THREE.Vector3(x, z, -y);
 const V = (x, y, z) => new THREE.Vector3(x, y, z), UP = V(0, 1, 0);
@@ -52,6 +52,15 @@ const GROUND_DETAIL = /* glsl */ `
 export function createView3D(opts) {
   const { terrain: T, trails, lifts, scenery, masks, frame, tiles, tileM, pal, guide, trail, spray, trailLife } = opts;
   const W = (T.cols - 1) * T.stepX, H = (T.rows - 1) * T.stepY;
+  // Height of the drawn terrain mesh (a 20 m grid of triangles, see below), which can sit tens of
+  // centimetres off ground() on curved slopes: things lying flat on the snow use this.
+  const MESH = 20;
+  const surface = (x, y) => {
+    const fx = (x - T.minX) / MESH, fy = (y - T.minY) / MESH, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
+    const h = (a, b) => ground(T.minX + (i + a) * MESH, T.minY + (j + b) * MESH);
+    return u + v <= 1 ? h(0, 0) + u * (h(1, 0) - h(0, 0)) + v * (h(0, 1) - h(0, 0))
+      : h(1, 1) + (1 - u) * (h(0, 1) - h(1, 1)) + (1 - v) * (h(1, 0) - h(1, 1));
+  };
   const ground = (x, y) => heightAt(T, x, y);
   const gradient = (x, y) => [(ground(x + 20, y) - ground(x - 20, y)) / 40, (ground(x, y + 20) - ground(x, y - 20)) / 40];
   const maskAt = (x, y, ch) => { const [px, py] = frame.toPx(x, y), i = (Math.min(frame.h - 1, py | 0) * frame.w + Math.min(frame.w - 1, px | 0)) * 4; return masks[i + ch]; };
@@ -120,7 +129,7 @@ export function createView3D(opts) {
   }
   // Terrain mesh sampled every 20 m from the DEM.
   {
-    const S = 20, nx = Math.floor(W / S) + 1, ny = Math.floor(H / S) + 1;
+    const S = MESH, nx = Math.floor(W / S) + 1, ny = Math.floor(H / S) + 1;
     const pos = new Float32Array(nx * ny * 3), uv = new Float32Array(nx * ny * 2), idx = [];
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
       const x = T.minX + i * S, y = T.minY + j * S, k = j * nx + i;
@@ -149,9 +158,11 @@ export function createView3D(opts) {
   }
 
   // ---------- Lifts, buildings, poles, trees ----------
-  const lifts3d = buildLifts(scene, lifts, ground, pal);
-  buildBuildings(scene, [...scenery.buildings, ...scenery.restaurants.map(r => ({ ...r, area: 150 }))], ground, pal, gradient);
-  buildPoles(scene, trails, ground, pal);
+  const lifts3d = buildLifts(scene, lifts, ground, pal, surface);
+  // Restaurants mapped only as a point get a small chalet; those inside a mapped building already have one.
+  const pointHuts = scenery.restaurants.filter(r => !scenery.buildings.some(b => Math.hypot(b.x - r.x, b.y - r.y) < 15));
+  buildBuildings(scene, [...scenery.buildings, ...pointHuts.map(r => ({ ...r, area: 150, use: 'shop' }))], ground, pal, gradient);
+  buildPoles(scene, trails, ground, pal, (x, y) => maskAt(x, y, 1) > 120);
   const forest = buildForest(scene, tiles, tileM, ground, pal);
   // The player's own chair or cabin while riding (the shared carriers run at their own pace).
   const myCarrier = {};
@@ -159,6 +170,11 @@ export function createView3D(opts) {
     myCarrier[type] = new THREE.Mesh(carrierGeometry(type), mat(type === 'chair_lift' ? pal.lift : pal.roof));
     myCarrier[type].visible = false; scene.add(myCarrier[type]);
   }
+  // On a drag lift: the player's own hanger, a bar from the grip on the cable down to a disc between the legs.
+  const hanger = new THREE.Group(), hangerBar = new THREE.Mesh(new THREE.BoxGeometry(.04, 1, .04), mat(pal.lift));
+  const gripPos = new THREE.Vector3(), gripDir = new THREE.Vector3();
+  const hangerDisc = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .08, 10), mat(pal.lift));
+  hanger.add(hangerBar, hangerDisc); hanger.visible = false; scene.add(hanger);
 
   // ---------- The skier ----------
   // A small jointed rig built facing +x (x forward, y up, z to the skier's right). pose() places
@@ -391,6 +407,7 @@ export function createView3D(opts) {
     const r = lifts3d.ride(l, f, ridePos, rideDir);
     const yaw = Math.atan2(-rideDir.z, rideDir.x);
     for (const m of Object.values(myCarrier)) m.visible = false;
+    hanger.visible = false;
     lastHeading = null; facing = null; lean = 0;
     anim.stop = anim.plow = anim.tuck = anim.push = anim.counter = anim.knees = anim.lead = 0;
     body.rotation.x = 0; stance.rotation.y = 0;
@@ -404,16 +421,30 @@ export function createView3D(opts) {
       anim.sit = 1; pose(anim);
       skier.position.copy(ridePos).add(V(0, -(drop ?? 3), 0)); skier.rotation.y = yaw;
       at = ridePos.clone().add(V(0, -2, 0));
-      lifts3d.update(state.t, r);
+      lifts3d.update(state.liftClock, r);
     } else {
       // Drag lifts: standing on the skis, pulled up the track.
-      const { position: [x, y], tangent: [tx, ty] } = sampleRoute(l, state.liftD);
-      anim.sit = 0; anim.crouch = .35; pose(anim);
+      // Magic carpet: standing upright on top of the belt.
+      const { position: [x, y], tangent: [tx, ty] } = sampleRoute(l, state.liftD), carpet = l.type === 'magic_carpet';
+      anim.sit = 0; anim.crouch = carpet ? 0 : .35; pose(anim);
       skier.visible = shadow.visible = true;
-      skier.position.copy(v3(x, y, ground(x, y))); skier.rotation.y = Math.atan2(ty, tx);
+      // Stepped sideways in the track with ← → (state.liftSide metres to the rider's left); the bar follows.
+      const off = carpet ? 0 : state.liftSide || 0, sx = x - ty * off, sy = y + tx * off;
+      skier.position.copy(v3(sx, sy, carpet ? surface(x, y) + CARPET_TOP : ground(sx, sy))); skier.rotation.y = Math.atan2(ty, tx);
+      if (!r) rideDir.set(tx, 0, -ty); // no cable to take the direction from
       shadow.position.copy(skier.position); shadow.quaternion.identity();
       at = skier.position;
-      lifts3d.update(state.t, null);
+      // The grip runs on the cable 4 m ahead, so the bar leans forward from the seat up to it.
+      const grip = r && lifts3d.ride(l, Math.min(1, (state.liftD + 4) / l.length), gripPos, gripDir);
+      if (grip) {
+        // The disc sits under the seat, a little behind the hips.
+        const seat = skier.position.clone().add(V(-tx * .15, .7, ty * .15));
+        const d = gripPos.clone().sub(seat), len = d.length();
+        hangerBar.position.copy(seat).addScaledVector(d, .5); hangerBar.quaternion.setFromUnitVectors(UP, d.divideScalar(len)); hangerBar.scale.y = len;
+        hangerDisc.position.copy(seat); hangerDisc.rotation.set(0, 0, 0);
+        hanger.visible = true;
+      }
+      lifts3d.update(state.liftClock, grip);
     }
     follow(at, Math.atan2(-rideDir.z, rideDir.x), 0, dt, true);
   }
@@ -433,8 +464,9 @@ export function createView3D(opts) {
       if (state.mode === 'lift' && state.lift) liftFrame(state, dt);
       else if (state.skier) {
         for (const m of Object.values(myCarrier)) m.visible = false;
+        hanger.visible = false;
         skiFrame(state, dt);
-        lifts3d.update(state.t, null);
+        lifts3d.update(state.liftClock, null);
       }
       if (state.top && state.camBlend < 1) fromTop(state.top, state.camBlend);
       forest(camera.position.x, -camera.position.z);
