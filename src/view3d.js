@@ -172,9 +172,12 @@ export function createView3D(opts) {
   }
   // On a drag lift: the player's own hanger, a bar from the grip on the cable down to a disc between the legs.
   const hanger = new THREE.Group(), hangerBar = new THREE.Mesh(new THREE.BoxGeometry(.04, 1, .04), mat(pal.lift));
-  const gripPos = new THREE.Vector3(), gripDir = new THREE.Vector3();
+  const gripPos = new THREE.Vector3(), gripDir = new THREE.Vector3(), toSkier = new THREE.Matrix4();
   const hangerDisc = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .08, 10), mat(pal.lift));
-  hanger.add(hangerBar, hangerDisc); hanger.visible = false; scene.add(hanger);
+  const hangerCord = new THREE.Mesh(new THREE.BoxGeometry(.02, 1, .02), mat(pal.ink)), HANGER_BAR = 2.2;
+  hanger.add(hangerBar, hangerCord, hangerDisc); hanger.visible = false; scene.add(hanger);
+  // Places a unit-tall box so it spans a → b.
+  const stretch = (m, a, b) => { const d = b.clone().sub(a), len = d.length() || 1e-3; m.position.copy(a).addScaledVector(d, .5); m.quaternion.setFromUnitVectors(UP, d.divideScalar(len)); m.scale.y = len; };
 
   // ---------- The skier ----------
   // A small jointed rig built facing +x (x forward, y up, z to the skier's right). pose() places
@@ -210,7 +213,9 @@ export function createView3D(opts) {
   // p.counter: angulation — the upper body rolled back toward the outside of the turn (radians),
   // p.knees: knees and hips driven into the turn (− = left); p.tuck 0 → 1;
   // p.push 0 → 1 with p.phase: skating off, each leg in turn pushing out and back while the other glides;
-  // p.sit: seated on a chair (the origin is then 0.6 m below the seat).
+  // p.sit: seated on a chair (the origin is then 0.6 m below the seat);
+  // p.drag: on a drag lift, the point on the bar the right hand holds (skier-local), p.dragDir the bar's
+  // direction up toward the cable; the left hand then carries both poles.
   function pose(p) {
     const c = p.crouch, joints = [];
     // Skating: the right leg pushes while sin(phase) > 0, the left while it is < 0; the body rides over the gliding ski.
@@ -268,8 +273,23 @@ export function createView3D(opts) {
       boneU(rig.hands[s], hand.clone().addScaledVector(pd, -.05), handEnd);
       boneU(rig.poles[s], handEnd, hand.clone().addScaledVector(pd, 1.15));
     }
+    if (p.drag) {
+      const shoulder = side => chest.clone().addScaledVector(spine, -.06).add(V(0, 0, side * .22));
+      // Left hand in front of the belly, both poles in its fist, trailing back and down past the hip.
+      const left = chest.clone().add(V(.24, -.42, -.1)), ls = shoulder(-1), le = ls.clone().lerp(left, .5).add(V(-.08, -.1, -.1));
+      boneU(rig.upper[0], ls, le); boneU(rig.fore[0], le, left);
+      boneU(rig.hands[0], left.clone().add(V(0, 0, -.06)), left.clone().add(V(0, 0, .06))); // fist across both grips
+      for (const s of [0, 1]) {
+        const d = V(-.8, -.55, (s ? 1 : -1) * .07 - .1).normalize(), at = left.clone().add(V(0, 0, (s ? 1 : -1) * .035));
+        boneU(rig.poles[s], at.clone().addScaledVector(d, -.12), at.clone().addScaledVector(d, 1.05));
+      }
+      // Right hand on the bar, elbow bent out to the side.
+      const right = p.drag, rs = shoulder(1), re = rs.clone().lerp(right, .5).add(V(-.1, -.12, .14));
+      boneU(rig.upper[1], rs, re); boneU(rig.fore[1], re, right);
+      boneU(rig.hands[1], right.clone().addScaledVector(p.dragDir, -.06), right.clone().addScaledVector(p.dragDir, .06));
+    }
   }
-  const anim = { crouch: .2, plow: 0, lead: 0, counter: 0, knees: 0, tuck: 0, push: 0, phase: 0, stop: 0, stopSide: 1, sit: 0 };
+  const anim = { crouch: .2, plow: 0, lead: 0, counter: 0, knees: 0, tuck: 0, push: 0, phase: 0, stop: 0, stopSide: 1, sit: 0, drag: null, dragDir: V(0, 1, 0) };
 
   // ---------- Tracks and spray, drawn from the game's own effect arrays ----------
   const TRACK_MAX = 1200, SPRAY_MAX = 400;
@@ -409,7 +429,7 @@ export function createView3D(opts) {
     for (const m of Object.values(myCarrier)) m.visible = false;
     hanger.visible = false;
     lastHeading = null; facing = null; lean = 0;
-    anim.stop = anim.plow = anim.tuck = anim.push = anim.counter = anim.knees = anim.lead = 0;
+    anim.stop = anim.plow = anim.tuck = anim.push = anim.counter = anim.knees = anim.lead = 0; anim.drag = null;
     body.rotation.x = 0; stance.rotation.y = 0;
     let at;
     if (r && r.type !== 'platter') {
@@ -426,7 +446,7 @@ export function createView3D(opts) {
       // Drag lifts: standing on the skis, pulled up the track.
       // Magic carpet: standing upright on top of the belt.
       const { position: [x, y], tangent: [tx, ty] } = sampleRoute(l, state.liftD), carpet = l.type === 'magic_carpet';
-      anim.sit = 0; anim.crouch = carpet ? 0 : .35; pose(anim);
+      anim.sit = 0; anim.crouch = carpet ? 0 : .25;
       skier.visible = shadow.visible = true;
       // Stepped sideways in the track with ← → (state.liftSide metres to the rider's left); the bar follows.
       const off = carpet ? 0 : state.liftSide || 0, sx = x - ty * off, sy = y + tx * off;
@@ -434,16 +454,25 @@ export function createView3D(opts) {
       if (!r) rideDir.set(tx, 0, -ty); // no cable to take the direction from
       shadow.position.copy(skier.position); shadow.quaternion.identity();
       at = skier.position;
-      // The grip runs on the cable 4 m ahead, so the bar leans forward from the seat up to it.
-      const grip = r && lifts3d.ride(l, Math.min(1, (state.liftD + 4) / l.length), gripPos, gripDir);
+      // The grip runs on the cable 3 m ahead; a cord reels out of it down to the top of the bar.
+      const grip = r && lifts3d.ride(l, Math.min(1, (state.liftD + 3) / l.length), gripPos, gripDir);
       if (grip) {
-        // The disc sits under the seat, a little behind the hips.
-        const seat = skier.position.clone().add(V(-tx * .15, .7, ty * .15));
-        const d = gripPos.clone().sub(seat), len = d.length();
-        hangerBar.position.copy(seat).addScaledVector(d, .5); hangerBar.quaternion.setFromUnitVectors(UP, d.divideScalar(len)); hangerBar.scale.y = len;
+        // The disc sits under the seat, between the thighs.
+        const seat = skier.position.clone().add(V(-tx * .05, .55, ty * .05));
+        // The bar: HANGER_BAR m long, leaning 45° forward (up between the legs, in front of the chest) and
+        // tilted sideways toward the cable when the rider has stepped off the line.
+        const toGrip = gripPos.clone().sub(seat).normalize(), fwd = V(tx, 0, -ty);
+        const d = fwd.clone().add(UP).normalize().add(toGrip.clone().addScaledVector(fwd, -toGrip.dot(fwd)).setY(0)).normalize();
+        const top = seat.clone().addScaledVector(d, HANGER_BAR);
+        stretch(hangerBar, seat, top); stretch(hangerCord, top, gripPos);
         hangerDisc.position.copy(seat); hangerDisc.rotation.set(0, 0, 0);
         hanger.visible = true;
+        // The right hand grips the bar about 1.15 m above the skis.
+        const hold = seat.clone().addScaledVector(d, (1.15 - .55) / d.y);
+        skier.updateMatrixWorld(true);
+        anim.drag = skier.worldToLocal(hold); anim.dragDir.copy(d).transformDirection(toSkier.copy(skier.matrixWorld).invert());
       }
+      pose(anim);
       lifts3d.update(state.liftClock, grip);
     }
     follow(at, Math.atan2(-rideDir.z, rideDir.x), 0, dt, true);
@@ -464,7 +493,7 @@ export function createView3D(opts) {
       if (state.mode === 'lift' && state.lift) liftFrame(state, dt);
       else if (state.skier) {
         for (const m of Object.values(myCarrier)) m.visible = false;
-        hanger.visible = false;
+        hanger.visible = false; anim.drag = null;
         skiFrame(state, dt);
         lifts3d.update(state.liftClock, null);
       }
