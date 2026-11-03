@@ -156,6 +156,67 @@ export const liftSpeed = type => LIFT_SPEED[type] || 4;
 // Drag lifts: the skier stands on their skis and is pulled up the track.
 export const DRAG_LIFTS = new Set(['platter', 't-bar', 'j-bar', 'drag_lift', 'rope_tow']);
 
+// A building's shape, shared by the 2D and 3D views: the outline in world metres (OSM footprint, or a
+// rectangle along the contour for one known only by position and area), wall height, and a gable along
+// the long axis cut to the outline. The outline is split where it crosses the ridge, so every wall top
+// and roof face is a straight line. Materials are keys the views turn into colours: IGN's where known;
+// otherwise churches and forts in stone, tall blocks in concrete, sheds in dark wood, houses wood or
+// render with a stone ground floor.
+export function buildingShape(b, gradient) {
+  const pts = (b.pts || footprintRectangle(b, gradient)).map(([dx, dy]) => [b.x + dx, b.y + dy]);
+  const n = pts.length, h = b.h || (b.area > 400 ? 9 : 6), rise = b.roof ?? Math.sqrt(b.area) * (b.area > 400 ? .2 : .35);
+  const r = ((Math.sin(b.x * 12.9898 + b.y * 78.233) * 43758.5453) % 1 + 1) % 1;
+  // Ridge along the edge direction that gives the narrowest width (the long axis).
+  let best = { w: Infinity };
+  for (let i = 0; i < n; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n], L = Math.hypot(bx - ax, by - ay);
+    if (L < 1e-6) continue;
+    const nx = -(by - ay) / L, ny = (bx - ax) / L, d = pts.map(p => p[0] * nx + p[1] * ny);
+    const w = Math.max(...d) - Math.min(...d);
+    if (w < best.w) best = { w, nx, ny, mid: (Math.max(...d) + Math.min(...d)) / 2 };
+  }
+  const side = p => p[0] * best.nx + p[1] * best.ny - best.mid;
+  const ring = [];
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n], sp = side(p), sq = side(q);
+    ring.push(p);
+    if (rise > 0 && sp * sq < 0) { const t = sp / (sp - sq); ring.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
+  }
+  const tall = h > 12 || b.use === 'shop' && b.area > 400;
+  return {
+    ring, h, rise, side,
+    // Height of the roof above the eaves at a point.
+    lift: p => rise * Math.max(0, 1 - Math.abs(side(p)) / (best.w / 2)),
+    // Roof faces: one per side of the ridge, or the whole outline when flat. normal points from the
+    // ridge down the first face.
+    normal: [best.nx, best.ny],
+    faces: rise > 0 ? [clipHalf(ring, side), clipHalf(ring, p => -side(p))].filter(f => f.length > 2) : [ring],
+    wall: b.wall || (b.use === 'church' || b.use === 'fort' ? 'stone' : b.use === 'shed' ? 'shed' : tall ? 'concrete' : r < .6 ? 'wood' : 'render'),
+    roof: b.top || (rise > 0 ? (b.use === 'shed' ? 'metal' : r < .75 ? 'tile' : 'slate') : 'concrete'),
+    plinth: !b.wall && b.use === 'home' && !tall,
+    windows: b.use !== 'shed' && b.use !== 'fort',
+    floors: Math.max(1, Math.min(b.floors || Math.round(h / 3), Math.floor(h / 2.6))),
+  };
+}
+
+// The part of a polygon where f(p) ≥ 0 (f linear), Sutherland–Hodgman.
+function clipHalf(poly, f) {
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i], q = poly[(i + 1) % poly.length], fp = f(p), fq = f(q);
+    if (fp >= -1e-6) out.push(p);
+    if ((fp > 1e-6 && fq < -1e-6) || (fp < -1e-6 && fq > 1e-6)) { const t = fp / (fp - fq); out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
+  }
+  return out;
+}
+
+// Footprint for a building known only by position and area: a rectangle with its long side along the contour.
+function footprintRectangle(b, gradient) {
+  const [gx, gy] = gradient(b.x, b.y), yaw = Math.hypot(gx, gy) > .02 ? Math.atan2(gy, gx) + Math.PI / 2 : 0;
+  const len = Math.sqrt(b.area) * 1.2, wide = b.area / len, c = Math.cos(yaw), s = Math.sin(yaw);
+  return [[-len, -wide], [len, -wide], [len, wide], [-len, wide]].map(([u, v]) => [(u * c - v * s) / 2, (u * s + v * c) / 2]);
+}
+
 // Arcade feel: snappy carving that keeps speed, less friction, a tuck to go faster, fun powder,
 // and a minimum glide on pistes. The mountain stays real; only the skier cheats.
 export const ARCADE = {

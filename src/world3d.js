@@ -2,7 +2,7 @@
 // World: x east, y north, z altitude (metres); Three.js is y-up, so world (x, y, z) → (x, z, −y).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { sampleRoute, widthAt, liftSpeed, DRAG_LIFTS } from './core.js';
+import { sampleRoute, widthAt, liftSpeed, DRAG_LIFTS, buildingShape } from './core.js';
 
 const v3 = (x, y, z) => new THREE.Vector3(x, z, -y);
 const mat = c => new THREE.MeshLambertMaterial({ color: c });
@@ -177,14 +177,14 @@ function carpetMesh(l, ground, pal) {
   return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: pal.lift, side: THREE.DoubleSide }));
 }
 
-// Buildings extruded from their real footprints (OSM outline; height, roof and materials from IGN BD TOPO
-// where matched). Pitched roofs are a gable along the footprint's long axis, cut to the outline; flat roofs
-// carry snow. All buildings are merged into one mesh coloured per vertex.
+// Buildings extruded from their real footprints (shape from buildingShape: OSM outline; height, roof and
+// materials from IGN BD TOPO where matched). Flat and pitched roofs alike carry snow. All buildings are
+// merged into one mesh coloured per vertex.
 export function buildBuildings(scene, buildings, ground, pal, gradient) {
   const C = c => new THREE.Color(c), mix = (a, b, t) => C(a).lerp(C(b), t);
-  const WALL = { stone: C(pal.stone), wood: C(pal.wall), concrete: mix(pal.stone, pal.snow[0], .55), render: mix(pal.wall, pal.snow[0], .7) };
+  const WALL = { stone: C(pal.stone), wood: C(pal.wall), concrete: mix(pal.stone, pal.snow[0], .55), render: mix(pal.wall, pal.snow[0], .7), shed: C(pal.wallDark) };
   const ROOF = { tile: C(pal.roof), slate: mix(pal.stone, pal.ink, .45), metal: mix(pal.stone, pal.leaf[1], .35), concrete: C(pal.stone) };
-  const snow = C(pal.roofSnow), shed = C(pal.wallDark);
+  const snow = C(pal.roofSnow);
   const pos = [], col = [];
   const tri = (a, b, c, k) => { for (const p of [a, b, c]) { pos.push(p[0], p[2], -p[1]); col.push(k.r, k.g, k.b); } };
   // Wall strip between two heights at each end of edge a → b (heights absolute).
@@ -192,37 +192,12 @@ export function buildBuildings(scene, buildings, ground, pal, gradient) {
     if (a1 - a0 < .01 && b1 - b0 < .01) return;
     tri([a[0], a[1], a0], [b[0], b[1], b0], [b[0], b[1], b1], k); tri([a[0], a[1], a0], [b[0], b[1], b1], [a[0], a[1], a1], k);
   };
-  const hash = (x, y) => ((Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1 + 1) % 1;
   for (const b of buildings) {
-    const pts = (b.pts || rectangle(b, gradient)).map(([dx, dy]) => [b.x + dx, b.y + dy]);
-    const n = pts.length, h = b.h || (b.area > 400 ? 9 : 6), rise = b.roof ?? Math.sqrt(b.area) * (b.area > 400 ? .2 : .35), r = hash(b.x, b.y);
-    // Ridge along the edge direction that gives the narrowest width (the long axis).
-    let best = { w: Infinity };
-    for (let i = 0; i < n; i++) {
-      const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n], L = Math.hypot(bx - ax, by - ay);
-      if (L < 1e-6) continue;
-      const nx = -(by - ay) / L, ny = (bx - ax) / L, d = pts.map(p => p[0] * nx + p[1] * ny);
-      const w = Math.max(...d) - Math.min(...d);
-      if (w < best.w) best = { w, nx, ny, mid: (Math.max(...d) + Math.min(...d)) / 2 };
-    }
-    const side = p => p[0] * best.nx + p[1] * best.ny - best.mid;
-    const lift = p => rise * Math.max(0, 1 - Math.abs(side(p)) / (best.w / 2));
-    // Split edges where they cross the ridge so every wall top and roof face is a straight line.
-    const ring = [];
-    for (let i = 0; i < n; i++) {
-      const p = pts[i], q = pts[(i + 1) % n], sp = side(p), sq = side(q);
-      ring.push(p);
-      if (rise > 0 && sp * sq < 0) { const t = sp / (sp - sq); ring.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
-    }
+    const s = buildingShape(b, gradient), { ring, h } = s;
     // Sit on the lowest corner so the downhill side never floats.
     const base = Math.min(...ring.map(p => ground(p[0], p[1]))) - .5, eave = base + .5 + h;
-    const top = p => eave + lift(p);
-    // Materials: IGN's where known; otherwise churches and forts in stone, tall blocks in concrete,
-    // sheds in dark wood, houses wood or render with a stone ground floor.
-    const tall = h > 12 || b.use === 'shop' && b.area > 400;
-    const wall = WALL[b.wall] || (b.use === 'church' || b.use === 'fort' ? WALL.stone : b.use === 'shed' ? shed : tall ? WALL.concrete : r < .6 ? WALL.wood : WALL.render);
-    const plinth = !b.wall && b.use === 'home' && !tall ? WALL.stone : null;
-    const roofCol = ROOF[b.top] || (rise > 0 ? (b.use === 'shed' ? ROOF.metal : r < .75 ? ROOF.tile : ROOF.slate) : ROOF.concrete);
+    const top = p => eave + s.lift(p);
+    const wall = WALL[s.wall] || WALL.wood, plinth = s.plinth ? WALL.stone : null, roofCol = ROOF[s.roof] || ROOF.tile;
     const glass = wall.clone().multiplyScalar(.45);
     for (let i = 0; i < ring.length; i++) {
       const p = ring[i], q = ring[(i + 1) % ring.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
@@ -233,21 +208,19 @@ export function buildBuildings(scene, buildings, ground, pal, gradient) {
       strip(p, q, sp, sq, tp - .5, tq - .5, wall);
       strip(p, q, tp - .5, tq - .5, tp, tq, roofCol);
       // A darker window row on each floor above the ground, on walls long enough to have windows.
-      if (L < 4 || b.use === 'shed' || b.use === 'fort') continue;
+      if (L < 4 || !s.windows) continue;
       const ox = (q[1] - p[1]) / L * .08, oy = -(q[0] - p[0]) / L * .08, inset = Math.min(1, L / 5);
       const a = [p[0] + (q[0] - p[0]) * inset / L + ox, p[1] + (q[1] - p[1]) * inset / L + oy];
       const c = [q[0] - (q[0] - p[0]) * inset / L + ox, q[1] - (q[1] - p[1]) * inset / L + oy];
-      const floors = Math.max(1, Math.min(b.floors || Math.round(h / 3), Math.floor(h / 2.6))), fh = h / floors;
-      for (let f = 0; f < floors; f++) {
+      const fh = h / s.floors;
+      for (let f = 0; f < s.floors; f++) {
         const z0 = eave - h + f * fh + fh * .35, z1 = z0 + fh * .38;
         if (z0 < Math.max(gp, gq) + .3) continue; // buried on the uphill side
         strip(a, c, z0, z0, z1, z1, glass);
       }
     }
-    // Roof: one face per side of the ridge (only one for a flat roof), triangulated inside the outline.
-    for (const half of rise > 0 ? [1, -1] : [0]) {
-      const poly = half ? clipHalf(ring, p => side(p) * half) : ring;
-      if (poly.length < 3) continue;
+    // Roof faces triangulated inside the outline.
+    for (const poly of s.faces) {
       const faces = THREE.ShapeUtils.triangulateShape(poly.map(p => new THREE.Vector2(p[0], p[1])), []);
       for (const [i, j, k] of faces) {
         const [A, B, D] = [poly[i], poly[j], poly[k]].map(p => [p[0], p[1], top(p) + .05]);
@@ -261,25 +234,6 @@ export function buildBuildings(scene, buildings, ground, pal, gradient) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
   scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-}
-
-// The part of a polygon where f(p) ≥ 0 (f linear), Sutherland–Hodgman.
-function clipHalf(poly, f) {
-  const out = [];
-  for (let i = 0; i < poly.length; i++) {
-    const p = poly[i], q = poly[(i + 1) % poly.length], fp = f(p), fq = f(q);
-    if (fp >= -1e-6) out.push(p);
-    if ((fp > 1e-6 && fq < -1e-6) || (fp < -1e-6 && fq > 1e-6)) { const t = fp / (fp - fq); out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
-  }
-  return out;
-}
-
-// Footprint for a building known only by position and area (restaurants mapped as a point): a rectangle
-// with its long side along the contour.
-function rectangle(b, gradient) {
-  const [gx, gy] = gradient(b.x, b.y), yaw = Math.hypot(gx, gy) > .02 ? Math.atan2(gy, gx) + Math.PI / 2 : 0;
-  const len = Math.sqrt(b.area) * 1.2, wide = b.area / len, c = Math.cos(yaw), s = Math.sin(yaw);
-  return [[-len, -wide], [len, -wide], [len, wide], [-len, wide]].map(([u, v]) => [(u * c - v * s) / 2, (u * s + v * c) / 2]);
 }
 
 // Piste-edge poles every 30 m on both sides, in each piste's difficulty colour. onPiste(x, y) says whether

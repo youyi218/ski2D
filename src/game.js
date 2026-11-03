@@ -53,7 +53,7 @@ function setPalette(key) {
   tiles.setPalette(pal);
   view3d?.dispose(); view3d = null; // rebuilt in the new colours next time it is shown
   sprites = buildSprites(pal);
-  entities ||= placeEntities(frame, trails, lifts, scenery, masks);
+  entities ||= placeEntities(frame, trails, lifts, scenery, masks, env.gradient);
   miniBase = bakeMinimap(); mapBase = null;
   if (big.open) drawBigMap();
   $('palettes').innerHTML = Object.entries(PALETTES).map(([k, p], i) =>
@@ -521,6 +521,63 @@ function pixelLine(g, x0, y0, x1, y1) {
 }
 
 const CABLE = 14;
+// Building heights on screen: low-res pixels per metre at 1 m per pixel (walls rise straight up the screen,
+// like the upright sprites). Above 8 m they rise at half rate, so the tall blocks don't fill the view.
+const BUILDING_VZ = .75;
+const squash = z => z <= 8 ? z : 8 + (z - 8) * .5;
+const mixHex = (a, b, t) => '#' + [0, 1, 2].map(i => Math.round(parseInt(a.slice(1 + i * 2, 3 + i * 2), 16) * (1 - t) + parseInt(b.slice(1 + i * 2, 3 + i * 2), 16) * t).toString(16).padStart(2, '0')).join('');
+// Wall and roof colours per material key, as in the 3D view; shade = the wall turned away from the light.
+let buildingColours;
+function buildingPalette() {
+  if (buildingColours?.pal === pal) return buildingColours;
+  const wall = { stone: pal.stone, wood: pal.wall, concrete: mixHex(pal.stone, pal.snow[0], .55), render: mixHex(pal.wall, pal.snow[0], .7), shed: pal.wallDark };
+  return buildingColours = {
+    pal, wall,
+    shade: Object.fromEntries(Object.entries(wall).map(([k, c]) => [k, mixHex(c, pal.ink, .25)])),
+    glass: Object.fromEntries(Object.entries(wall).map(([k, c]) => [k, mixHex(c, pal.ink, .5)])),
+    roof: { tile: pal.roof, slate: mixHex(pal.stone, pal.ink, .45), metal: mixHex(pal.stone, pal.leaf[1], .35), concrete: pal.stone },
+  };
+}
+// One building seen from above: the walls that face the viewer, then the snowy roof, raised up the screen
+// by their height. P(p, z) puts a world point z metres above the building's base on the screen.
+function drawBuilding(g, s, P, a) {
+  const C = buildingPalette(), top = p => s.h + s.lift(p);
+  const quad = (pts, colour) => { g.fillStyle = colour; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
+  const ground = s.ring.map(p => P(p, 0));
+  // Screen winding, so an edge's outward normal is known whichever way the map is turned.
+  let area = 0;
+  for (let i = 0; i < ground.length; i++) { const [x0, y0] = ground[i], [x1, y1] = ground[(i + 1) % ground.length]; area += x0 * y1 - x1 * y0; }
+  const walls = [];
+  for (let i = 0; i < s.ring.length; i++) {
+    const j = (i + 1) % s.ring.length, [x0, y0] = ground[i], [x1, y1] = ground[j];
+    const nx = (y1 - y0) * Math.sign(area), ny = -(x1 - x0) * Math.sign(area);
+    if (ny > 0) walls.push({ i, j, nx: nx / Math.hypot(nx, ny), far: Math.max(y0, y1) });
+  }
+  walls.sort((u, v) => u.far - v.far);
+  for (const { i, j, nx } of walls) {
+    const p = s.ring[i], q = s.ring[j], tp = top(p), tq = top(q), L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    const band = (z0p, z0q, z1p, z1q, colour, A = p, B = q) => quad([P(A, z0p), P(B, z0q), P(B, z1q), P(A, z1p)], colour);
+    // Light from the left of the screen.
+    band(0, 0, tp - .5, tq - .5, nx < -.3 ? C.wall[s.wall] : C.shade[s.wall]);
+    if (s.plinth) band(0, 0, Math.min(2.4, tp - .5), Math.min(2.4, tq - .5), nx < -.3 ? pal.stone : mixHex(pal.stone, pal.ink, .25));
+    band(tp - .5, tq - .5, tp, tq, C.roof[s.roof]);
+    if (L < 4 || !s.windows) continue;
+    const inset = Math.min(1, L / 5) / L, A = [p[0] + (q[0] - p[0]) * inset, p[1] + (q[1] - p[1]) * inset], B = [q[0] - (q[0] - p[0]) * inset, q[1] - (q[1] - p[1]) * inset];
+    const fh = s.h / s.floors;
+    for (let f = s.plinth ? 1 : 0; f < s.floors; f++) { const z0 = f * fh + fh * .35, z1 = z0 + fh * .38; band(z0, z0, z1, z1, C.glass[s.wall], A, B); }
+  }
+  // Roof faces: the one turned to the light brighter; a flat roof in between.
+  const [sx, sy] = [s.normal[0] * Math.cos(a) + s.normal[1] * Math.sin(a), s.normal[0] * Math.sin(a) - s.normal[1] * Math.cos(a)];
+  s.faces.forEach((face, i) => {
+    const lit = s.rise > 0 ? (i ? 1 : -1) * (sx + sy) > 0 : null;
+    quad(face.map(p => P(p, top(p))), lit === null ? pal.snow[1] : lit ? pal.roofSnow : pal.snow[2]);
+  });
+  // Ink outline of the roof and along the foot of the walls, as on the sprites.
+  g.strokeStyle = pal.ink; g.lineWidth = 1; g.beginPath();
+  for (const { i, j } of walls) { const [x0, y0] = ground[i], [x1, y1] = ground[j]; g.moveTo(x0 + .5, y0 + .5); g.lineTo(x1 + .5, y1 + .5); }
+  s.ring.forEach((p, i) => { const [x, y] = P(p, top(p)); i ? g.lineTo(x + .5, y + .5) : g.moveTo(x + .5, y + .5); });
+  g.closePath(); g.stroke();
+}
 // Screen scale: metres per low-res pixel. Sprites keep their pixel size; only the world zooms.
 const ZOOM = { near: TILE_MPP, far: 1, atSpeed: 14 };
 // Most new ground tiles baked per frame; the rest wait a frame or two.
@@ -566,9 +623,25 @@ function render() {
   }
   g.globalAlpha = 1;
 
-  const draw = [], labels = [];
-  const onScreen = it => { const [sx, sy] = proj(it.x, it.y); if (sx >= -30 && sx <= W + 30 && sy >= -10 && sy <= H + 40) draw.push({ sx, sy, it }); };
+  const draw = [], labels = [], shadows = new Path2D(), vz = k * BUILDING_VZ;
+  const P = (p, z) => { const [x, y] = proj(p[0], p[1]); return [x, Math.round(y - squash(z) * vz)]; };
+  const onScreen = it => {
+    const [sx, sy] = proj(it.x, it.y);
+    if (!it.shape) { if (sx >= -30 && sx <= W + 30 && sy >= -10 && sy <= H + 40) draw.push({ sx, sy, it }); return; }
+    // A building is drawn behind anything standing in front of its front-most corner.
+    const pts = it.shape.ring.map(p => proj(p[0], p[1])), ys = pts.map(p => p[1]), xs = pts.map(p => p[0]), up = squash(it.shape.h + it.shape.rise) * vz;
+    if (Math.max(...xs) < 0 || Math.min(...xs) > W || Math.max(...ys) < 0 || Math.min(...ys) - up > H) return;
+    draw.push({ sx, sy, z: Math.max(...ys), it });
+    // Shadow cast to the lower right, as long as the building is tall: the footprint swept along the cast.
+    const dx = squash(it.shape.h) * vz * .5, dy = dx * .4, n = pts.length;
+    const sub = poly => { let s = 0; poly.forEach(([x0, y0], i) => { const [x1, y1] = poly[(i + 1) % poly.length]; s += x0 * y1 - x1 * y0; });
+      (s < 0 ? [...poly].reverse() : poly).forEach(([x, y], i) => i ? shadows.lineTo(x, y) : shadows.moveTo(x, y)); shadows.closePath(); };
+    sub(pts); sub(pts.map(([x, y]) => [x + dx, y + dy]));
+    for (let i = 0; i < n; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % n]; sub([[x0, y0], [x1, y1], [x1 + dx, y1 + dy], [x0 + dx, y0 + dy]]); }
+  };
   for (const it of entities.near(cx, cy, R)) onScreen(it);
+  // All building shadows in one fill, so where they overlap they are no darker.
+  g.globalAlpha = .18; g.fillStyle = pal.ink; g.fill(shadows, 'nonzero'); g.globalAlpha = 1;
   for (const [tx, ty] of visible) for (const tree of tiles.trees(tx, ty)) onScreen(tree);
   // The skier, standing on the ground or hanging from the cable.
   const [kx, ky] = proj(...state.target);
@@ -576,11 +649,12 @@ function render() {
   draw.sort((p, q) => (p.z ?? p.sy) - (q.z ?? q.sy));
   for (const { sx, sy, it } of draw) {
     const spr = sprites[it.kind];
+    if (it.shape) drawBuilding(g, it.shape, P, a);
     if (it.kind.startsWith('pine') || it.shadow) { const sh = sprites[it.shadow || (it.kind === 'pine' ? 'shadowBig' : 'shadowSmall')]; g.drawImage(sh, sx - (sh.width >> 1), sy - 2); }
     // Tucked: the same skier, crouched a few pixels lower.
     if (spr && it.tuck) g.drawImage(spr, sx - (spr.width >> 1), sy - spr.height + 5, spr.width, spr.height - 4);
     else if (spr) g.drawImage(spr, sx - (spr.width >> 1), sy - spr.height + 1);
-    if (it.label && Math.hypot(sx - kx, sy - ky) < 95) labels.push({ x: sx, y: sy - (spr ? spr.height : 0) - 2, text: it.label, color: it.labelColor, hot: it.signFor && state.here?.route.id === it.signFor });
+    if (it.label && Math.hypot(sx - kx, sy - ky) < 95) labels.push({ x: sx, y: sy - (spr ? spr.height : it.shape ? Math.round(squash(it.shape.h + it.shape.rise) * vz) : 0) - 2, text: it.label, color: it.labelColor, hot: it.signFor && state.here?.route.id === it.signFor });
   }
 
   // Snow spray, lifted off the ground by its height.

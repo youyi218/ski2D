@@ -1,4 +1,4 @@
-import { seededRandom, sampleRoute, widthAt, widthIntervals, subPolyline } from './core.js';
+import { seededRandom, sampleRoute, widthAt, widthIntervals, subPolyline, buildingShape } from './core.js';
 
 // Physics, trees and the minimap use one whole-map mask at RES metres per pixel.
 export const RES = 2;
@@ -212,12 +212,18 @@ export function bakeOverview(frame, terrain, geo, pal, widthPx) {
 }
 
 // Fixed sprites (buildings, poles, signs, lifts, labels) in world metres, bucketed for culling.
-export function placeEntities(frame, routes, lifts, scenery, masks) {
+export function placeEntities(frame, routes, lifts, scenery, masks, gradient) {
   const items = [];
   const add = (kind, x, y, extra = {}) => { const [px, py] = frame.toPx(x, y); if (px >= 0 && py >= 0 && px < frame.w && py < frame.h) items.push({ kind, x, y, ...extra }); };
   const maskAt = (px, py, ch) => masks[(Math.floor(py) * frame.w + Math.floor(px)) * 4 + ch] > 120;
-  for (const b of scenery.buildings) add(b.area > 400 ? 'station' : 'chalet', b.x, b.y);
-  for (const r of scenery.restaurants) add('chalet', r.x, r.y, { label: (r.kind === 'restaurant' ? '🍴 ' : '☕ ') + r.name });
+  // Buildings keep their real outline (the same shape the 3D view extrudes); restaurants mapped only as a
+  // point get a small hut, those inside a mapped building just their label.
+  for (const b of scenery.buildings) add('building', b.x, b.y, { shape: buildingShape(b, gradient) });
+  for (const r of scenery.restaurants) {
+    const label = (r.kind === 'restaurant' ? '🍴 ' : '☕ ') + r.name;
+    if (scenery.buildings.some(b => Math.hypot(b.x - r.x, b.y - r.y) < 15)) add('none', r.x, r.y, { label });
+    else add('building', r.x, r.y, { label, shape: buildingShape({ ...r, area: 150, use: 'shop' }, gradient) });
+  }
   for (const r of routes) {
     if (r.kind === 'connection') continue;
     for (let d = 20; d < r.length - 10; d += 70) {
