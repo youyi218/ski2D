@@ -41,7 +41,7 @@ Processing rules:
 - `roof`: rise of the gable in metres, from `altitude_maximale_toit − altitude_minimale_toit`; 0 (flat) when it is under 1 m, or steeper than ~40° / over 8 m (a block stepped down the slope)
 - `use` (home / shop / church / shed / fort) from `usage_1`, `nature` and `construction_legere`; `wall` / `top` materials from `materiaux_des_murs` / `materiaux_de_la_toiture` where filled in
 
-Unmatched buildings fall back to OSM tags (`height`, `building:levels`, `roof:shape`, `building=*`) and then to estimates from the footprint. Resorts without the IGN file keep the old position-and-area buildings. Currently only Isola 2000 has it.
+Unmatched buildings fall back to OSM tags (`height`, `building:levels`, `roof:shape`, `building=*`) and then to estimates from the footprint. Resorts without the IGN file still get their OSM outlines, with heights and roofs from OSM tags or estimates. All five French resorts have it (downloaded 2026-11-03); share of OSM footprints matched: Saint-Lary 1256/1390, Isola 279/311, Serre Chevalier 7834/8820, Alpe d'Huez 4640/5296, Chamrousse 1002/1155.
 
 ## Corrections from official resort data
 
