@@ -356,3 +356,58 @@ All in each resort's `corrections.json`; every corrected run lists its changes i
 | S1 | Beginner lifts kept (real ski-school lifts), unlike Saint-Lary's two carpets |
 | S2 | Cabane, Chêne, Bois keep their OSM colours |
 | S3 | Cibouït / Yret keep the painted names |
+
+---
+
+# Tignes — OSM vs official map vs OpenSkiMap
+
+Compared on 2026-11-15.
+
+- **Official map**: *Plan des pistes Tignes - Val d'Isère 2026-2027* ([PDF](https://public.tignes.net/TIGNES.NET/BROCHURES/PLAN_DES_PISTES.pdf), linked from tignes.net/ski/domaine-skiable/plan-des-pistes; file dated 2026-10-22). Page 2 is the Tignes side. Its legend: green / blue / red / black; a row of asterisks = **Naturide** (black, patrolled, marked, not groomed); purple = ski-touring track; red dashed outline = slalom stadium; dashed black line = boundary with Val d'Isère. Piste labels are mostly outlines rather than text, so every label was read by eye on 5–8× renders, tile by tile. Each label is painted in its piste's colour. Read only; nothing copied into the game.
+- **OpenSkiMap**: export of 2026-11-15, ski area *Tignes - Val d'Isère*. The Tignes features are kept in `data/tignes/raw/openskimap-*.geojson`. Names and colours match OSM. Its only differences: ten ungroomed pistes (Asters, Golf, Silène, Œillet, Épilobes, Pâquerettes, Envers de Campanules, Guerlain Chicherit, Aiguille Percée, Vallons de la Sache) are not attached to the ski area, and it lists the Perce-Neige funicular.
+- **OSM**: `data/tignes/raw/tignes.osm`, downloaded 2026-11-15.
+
+**About 55 of the 70 labelled pistes agree in all three sources.** The rest:
+
+## A. Colours
+
+| Piste | Official | OSM | Done |
+|---|---|---|---|
+| Rabotch | red | blue | → red |
+| Combe Folle | black (label on the black line beside the Combe Folle drag) | red | → black |
+| Myrtilles | green (Brévières) | blue | → green |
+| Mélèzes | red | red, plus one 324 m blue piece | → red throughout |
+| Crocus, Rimaye | black, red | each has a short piece (64 m / 12 m) in another colour | → official colour throughout |
+
+## B. Names
+
+| Official map | OSM | Done |
+|---|---|---|
+| bergerie (blue, Chardonnet top → Merles bottom) | Accès Merles | renamed |
+| le mur | Mur | renamed |
+| stade de lognan | Stade de Lognan-Compétitions | renamed |
+| tines | Les Tines | renamed |
+| aster, épilobe, primevère | Asters, Epilobes, Primevères | renamed (singular as painted; accents kept) |
+| anémone, épena, mélèzes | Anemone, Epena, Mélézes | spelling |
+| buis (green, Tignes 1800 carpets) | unnamed green way 262850178 | named |
+| — | "Chemin vers le Lavachet (piste non répertoriée)" | unnamed |
+
+Lift names drop OSM's type codes (TSD6 Bollin → Bollin, TCD10 des Boisses → Boisses, TKE Grande Parei → Grande Pareï…); Lanches → Les Lanches, Val Claret carpet → Claret.
+
+## C. On the official map, not in OSM
+
+**Les Chartreux** (blue, Val Claret → Le Lac along the valley floor). No OSM way is there; not drawn (see T1).
+
+## D. On OSM, not labelled on the map
+
+Aigle, Saxifrage, Bec Rouge, Bollin, Boïu, Cafo, Centre, Lavachet, Retour Lavachet, Trolles, Pitots, Liaison Myrtilles Pitots, Stade de Slalom (the red OSM line at Val Claret), Descente and Leisse (Grande Motte glacier), Vallons de la Sache (OSM freeride), Anciens téléskis de Grande Balme, Couloir de Grande / Petite Balme. Kept as mapped.
+
+## E. Lifts
+
+Dropped: the Val d'Isère lifts inside the bbox (Daille, Borsat, Mont Blanc, Grand Pré, Marmottes Express, Slalom, Snow Park, Carpe Diem); Rosolin I/II and Champagny (OSM `removed=yes`); Termignon 1/2 and Panoramic (summer glacier lifts, not on the winter map; Panoramic is also `disused`); the Snowtubing carpet. The Termignon piste (OSM note "operated summertime only") is dropped with them. The Perce-Neige funicular is not read (railway, as for Isola). Village carpets are kept, as for Serre Chevalier.
+
+## Open questions — Tignes
+
+- **T1. Les Chartreux.** Hand-draw it from Val Claret to Le Lac, as Saint-Lary's missing pistes were?
+- **T2. Summer glacier.** Unnamed red pistes high on the Grande Motte glacier (3100–3450 m, served in summer by the dropped Termignon drags) and Descente / Leisse are kept as mapped; the winter map only shows *glacier*. Drop them too?
+- **T3. Singular names.** The map paints "aster", "épilobe", "primevère" where OSM has plurals; the game follows the map. Worth checking against the resort's live piste list once the season opens.

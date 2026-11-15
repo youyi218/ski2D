@@ -33,6 +33,12 @@ export const RESORTS = {
     load: () => Promise.all([import('../data/chamrousse/resort.json'), import('../data/chamrousse/scenery.json')]),
     card: () => import('../data/chamrousse/card.json'),
   },
+  tignes: {
+    title: 'Tignes', place: "Tignes · Savoie (Tignes - Val d'Isère)", region: { zh: '萨瓦 · Tarentaise', en: 'Savoie · Tarentaise', fr: 'Savoie · Tarentaise' },
+    note: 'noteOfficialOsm',
+    load: () => Promise.all([import('../data/tignes/resort.json'), import('../data/tignes/scenery.json')]),
+    card: () => import('../data/tignes/card.json'),
+  },
 };
 
 export function chosenResort() {

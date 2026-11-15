@@ -10,7 +10,8 @@ import json, math, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIRS = {'saint-lary': ROOT / 'data', 'isola': ROOT / 'data/isola', 'serre-chevalier': ROOT / 'data/serre-chevalier',
-        'alpe-d-huez': ROOT / 'data/alpe-d-huez', 'chamrousse': ROOT / 'data/chamrousse'}
+        'alpe-d-huez': ROOT / 'data/alpe-d-huez', 'chamrousse': ROOT / 'data/chamrousse',
+        'tignes': ROOT / 'data/tignes'}
 W, H_ = 128, 96   # thumbnail pixels (4:3); metres per pixel varies by resort
 MARGIN = 400     # metres kept around pistes and lifts
 ASPECT = W / H_

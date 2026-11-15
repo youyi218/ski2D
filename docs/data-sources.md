@@ -137,3 +137,14 @@ Built by the same script: `.venv/bin/python scripts/build_resort.py --resort cha
 - **Checked against the official map and OpenSkiMap** on 2026-10-29: see [official-comparison.md](official-comparison.md#chamrousse--osm-vs-official-map-vs-openskimap). 50 piste names, 16 lifts plus 2 carpets.
 - **Check**: hands-off, 78 of 89 piste starts board a lift; the rest are unnamed stubs or end on station flats.
 
+
+---
+
+# Tignes
+
+Built by the same script: `.venv/bin/python scripts/build_resort.py --resort tignes` (add `--fetch` to re-download, `--fetch-ign` for buildings). Everything lives in `data/tignes/`. The game loads it at `?resort=tignes`.
+
+- **OSM**: downloaded 2026-11-15 (`osm_base 2026-11-15T16:18:32Z`). Area: bbox S 45.403, W 6.855, N 45.512, E 6.950. Tignes has no ski-area outline of its own: OSM has one outline for *Tignes - Val d'Isère* (`landuse=winter_sports`, way 45421423). The bbox follows the Tignes domain boundary drawn on the official map (Col de la Leisse, Col de Fresse, Tovière and the Tommeuses side), and `clipDomain` cuts the shared outline to the bbox. Val d'Isère pistes and lifts that still reach inside (La Daille, Borsat, Fresse green, Mont Blanc…) are dropped in `corrections.json`. Covers Grande Motte (3456), Val Claret, Le Lac, Le Lavachet, Les Boisses, Tignes 1800 and Les Brévières (1550).
+- **Elevation**: zoom 13, x 4251–4254, y 2930–2933. **IGN buildings**: 1057 downloaded; 687 of 851 OSM footprints matched.
+- **Checked against the official map and OpenSkiMap** on 2026-11-15: see [official-comparison.md](official-comparison.md#tignes--osm-vs-official-map-vs-openskimap). 70 official piste names, 36 lifts including 7 carpets and tows (29 on the landing card).
+- **Not checked yet**: the hands-off "every piste start reaches a lift" run done for the other resorts. A test ride Chaudannes top → Épilobe → Petit Col worked.

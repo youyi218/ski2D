@@ -3,7 +3,7 @@
 
   python3 scripts/build_resort.py                  # Saint-Lary, rebuild from data/raw/v2
   python3 scripts/build_resort.py --resort isola   # Isola 2000, rebuild from data/isola/raw
-  python3 scripts/build_resort.py --resort serre-chevalier   # also alpe-d-huez, chamrousse
+  python3 scripts/build_resort.py --resort serre-chevalier   # also alpe-d-huez, chamrousse, tignes
   python3 scripts/build_resort.py --fetch          # re-download OSM (Overpass) and DEM tiles first
 
 Outputs resort.json (runs, lifts, terrain, topology) and scenery.json in the resort's data folder.
@@ -40,6 +40,14 @@ RESORTS = {
         'name': 'Chamrousse', 'scope': 'Domaine Skiable Chamrousse (OSM landuse=winter_sports way 1254312210)',
         'dir': ROOT / 'data/chamrousse', 'raw': ROOT / 'data/chamrousse/raw', 'osm': 'chamrousse.osm',
         'bbox': {'s': 45.080, 'w': 5.855, 'n': 45.145, 'e': 5.925}, 'origin': {'lat': 45.1125, 'lon': 5.89}, 'homeLift': 'La Croix',
+    },
+    # Tignes shares one OSM outline with Val d'Isère. The bbox stops at the domain boundary drawn on the official
+    # map (Col de Fresse, Tovière, the Tommeuses side); 'clipDomain' cuts the shared outline to it, and the few
+    # Val d'Isère pistes and lifts that reach inside are dropped in corrections.json.
+    'tignes': {
+        'name': 'Tignes', 'scope': "Tignes side of Tignes - Val d'Isère (OSM landuse=winter_sports way 45421423)",
+        'dir': ROOT / 'data/tignes', 'raw': ROOT / 'data/tignes/raw', 'osm': 'tignes.osm',
+        'bbox': {'s': 45.403, 'w': 6.855, 'n': 45.512, 'e': 6.950}, 'origin': {'lat': 45.4575, 'lon': 6.9025}, 'homeLift': 'Tovière', 'clipDomain': True,
     },
 }
 RESORT = RAW = BBOX = ORIGIN = COS = None  # set by use()
@@ -269,6 +277,23 @@ def describe_building(t, area, pts, ign):
     if ign.get('materiaux_de_la_toiture', '0')[0] in IGN_ROOF: b['top'] = IGN_ROOF[ign['materiaux_de_la_toiture'][0]]
     if ign: b['src'] = 'ign'
     return b
+
+
+def clip_to_rect(ring, x0, y0, x1, y1):
+    """Sutherland–Hodgman: the part of a polygon inside an axis-aligned rectangle."""
+    for inside_, cut in ((lambda p: p[0] >= x0, lambda a, b: (x0, a[1] + (b[1] - a[1]) * (x0 - a[0]) / (b[0] - a[0]))),
+                         (lambda p: p[0] <= x1, lambda a, b: (x1, a[1] + (b[1] - a[1]) * (x1 - a[0]) / (b[0] - a[0]))),
+                         (lambda p: p[1] >= y0, lambda a, b: (a[0] + (b[0] - a[0]) * (y0 - a[1]) / (b[1] - a[1]), y0)),
+                         (lambda p: p[1] <= y1, lambda a, b: (a[0] + (b[0] - a[0]) * (y1 - a[1]) / (b[1] - a[1]), y1))):
+        out = []
+        for a, b in zip(ring, ring[1:] + ring[:1]):
+            if inside_(b):
+                if not inside_(a): out.append(cut(a, b))
+                out.append(b)
+            elif inside_(a): out.append(cut(a, b))
+        ring = out
+        if not ring: break
+    return [[round(x, 1), round(y, 1)] for x, y in ring]
 
 
 def rings_from_relation(rel, ways):
@@ -526,6 +551,9 @@ def main():
     for wid, ids in way_nodes.items():
         if way_tags[wid].get('landuse') == 'winter_sports' and len(ids) > 3 and ids[0] == ids[-1]:
             domain.append([local(*nodes[n]) for n in ids[:-1]])
+    if RESORT.get('clipDomain'):  # an outline shared with a neighbouring resort: keep only the part in our bbox
+        (cx0, cy0), (cx1, cy1) = local(BBOX['s'], BBOX['w']), local(BBOX['n'], BBOX['e'])
+        domain = [r for r in (clip_to_rect(r, cx0, cy0, cx1, cy1) for r in domain) if len(r) >= 3]
 
     # ---- Plazas: open skiable ground around lift stations. ----
     plazas = []

@@ -8,6 +8,7 @@ ISOLA = json.loads((ROOT / 'data/isola/resort.json').read_text())
 SERRE = json.loads((ROOT / 'data/serre-chevalier/resort.json').read_text())
 ALPE = json.loads((ROOT / 'data/alpe-d-huez/resort.json').read_text())
 CHAMROUSSE = json.loads((ROOT / 'data/chamrousse/resort.json').read_text())
+TIGNES = json.loads((ROOT / 'data/tignes/resort.json').read_text())
 length = lambda p: sum(math.dist(a[:2], b[:2]) for a, b in zip(p, p[1:]))
 
 
@@ -141,10 +142,26 @@ class AlpeDHuezTest(OsmOnlyResort, unittest.TestCase):
 class ChamrousseTest(OsmOnlyResort, unittest.TestCase):
     DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = CHAMROUSSE, 'Chamrousse', (1350, 2300), 70, 15
 
+
+class TignesTest(OsmOnlyResort, unittest.TestCase):
+    DATA, NAME, ALT, MIN_TRAILS, MIN_LIFTS = TIGNES, 'Tignes', (1500, 3500), 150, 30
+
+    def test_official_names_and_colours(self):
+        fix = json.loads((ROOT / 'data/tignes/corrections.json').read_text())
+        runs = [t for t in TIGNES['trails'] if t['kind'] == 'run']
+        for t in runs:
+            if t['name'] in fix['officialPistes']: self.assertEqual(t['difficulty'], fix['officialPistes'][t['name']], t['name'])
+        self.assertEqual({t['name'] for t in runs} & set(fix['officialPistes']), set(fix['officialPistes']))
+
+    def test_no_val_disere_lifts(self):
+        names = {l['name'] for l in TIGNES['lifts']}
+        self.assertFalse(names & {'Daille', 'Borsat', 'Marmottes Express', 'Mont Blanc', 'Grand Pré'})
+        self.assertIn('Tommeuses', names)  # inside the Tignes boundary on the official map
+
 class CardTest(unittest.TestCase):
     """Landing-page summaries (scripts/build_cards.py) must match the resort data they summarise."""
     def test_cards_match_resorts(self):
-        for folder in ('data', 'data/isola', 'data/serre-chevalier', 'data/alpe-d-huez', 'data/chamrousse'):
+        for folder in ('data', 'data/isola', 'data/serre-chevalier', 'data/alpe-d-huez', 'data/chamrousse', 'data/tignes'):
             d = json.loads((ROOT / folder / 'resort.json').read_text())
             c = json.loads((ROOT / folder / 'card.json').read_text())
             self.assertEqual(c['osmSnapshotAt'], d['meta']['osmSnapshotAt'], f'{folder}: rerun scripts/build_cards.py')
