@@ -18,6 +18,7 @@
     "Prariond": "blue",
     "Henri": "blue",
     "Carline": "blue",
+    "Les Chartreux": "blue",
     "Signal": "blue",
     "Grattalu": "blue",
     "Prémou": "blue",
@@ -159,7 +160,52 @@
     "23140079": "Termignon: glacier piste tagged \"Operated summertime only\" in OSM; not on the winter map.",
     "714725090": "Termignon (second piece): summer glacier piste, not on the winter map."
   },
-  "drawn": [],
+  "drawn": [
+    {
+      "name": "Les Chartreux",
+      "difficulty": "blue",
+      "method": "path",
+      "points": [
+        [
+          35,
+          -395
+        ],
+        [
+          30,
+          -300
+        ],
+        [
+          20,
+          -200
+        ],
+        [
+          25,
+          -100
+        ],
+        [
+          45,
+          -20
+        ],
+        [
+          65,
+          60
+        ],
+        [
+          55,
+          140
+        ],
+        [
+          15,
+          200
+        ],
+        [
+          -40,
+          250
+        ]
+      ],
+      "why": "Not in OSM. Official map: blue line leaving the Henri/Aster junction above Val Claret, running down the east side of the village to its lower (north) end."
+    }
+  ],
   "liftNames": {
     "TSD6 Bollin": "Bollin",
     "TSD6 Grattalu": "Grattalu",

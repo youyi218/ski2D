@@ -487,6 +487,12 @@ def main():
                 f = k / n
                 o = off * (min(1, (1 - f) / .3) if spec.get('taperEnd') else 1)  # rejoin the reference line at the end
                 pts.append([x - ty * o * side, y + tx * o * side])
+        elif spec['method'] == 'path':  # waypoints in local metres, traced from the panorama against OSM/IGN features
+            way = spec['points']
+            for a, b in zip(way, way[1:]):
+                n = max(1, int(math.dist(a, b) / 15))
+                pts += [[a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n] for k in range(n)]
+            pts.append(list(way[-1]))
         else:  # between two lines, same fraction along each
             a, b = resolve(spec['a']), resolve(spec['b'])
             n = max(8, int(min(along(a)[-1], along(b)[-1]) / 15))

@@ -396,7 +396,7 @@ Lift names drop OSM's type codes (TSD6 Bollin → Bollin, TCD10 des Boisses → 
 
 ## C. On the official map, not in OSM
 
-**Les Chartreux** (blue, Val Claret → Le Lac along the valley floor). No OSM way is there; not drawn (see T1).
+**Les Chartreux** (blue). No OSM way, and OpenSkiMap has none either. On the map it leaves the point where Henri and Aster meet above Val Claret, runs along the north-east edge of the village and stops at its lower (north) end. The white dotted line on to Le Lac is a footpath, not this piste. **Hand-drawn** (`drawn`, method `path`): eight waypoints from the Henri/Aster junction (2161 m) down the east side of the buildings to the Restaurant du Golf (2106 m), downhill all the way. Because the map is a perspective painting, the waypoints were checked with a rough fit of the map onto ground coordinates using known lift stations (Tichot, Tovière and Rosset bottoms). The line is approximate and marked `estimated` in the game. Its lower end meets no lift or piste, as on the map, so a hands-off rider stops there.
 
 ## D. On OSM, not labelled on the map
 
@@ -408,6 +408,6 @@ Dropped: the Val d'Isère lifts inside the bbox (Daille, Borsat, Mont Blanc, Gra
 
 ## Open questions — Tignes
 
-- **T1. Les Chartreux.** Hand-draw it from Val Claret to Le Lac, as Saint-Lary's missing pistes were?
+- **T1. Les Chartreux.** Hand-drawn (decided 2026-11-16, as for Saint-Lary's missing pistes). A GPS track would settle its exact line.
 - **T2. Summer glacier.** Unnamed red pistes high on the Grande Motte glacier (3100–3450 m, served in summer by the dropped Termignon drags) and Descente / Leisse are kept as mapped; the winter map only shows *glacier*. Drop them too?
 - **T3. Singular names.** The map paints "aster", "épilobe", "primevère" where OSM has plurals; the game follows the map. Worth checking against the resort's live piste list once the season opens.
