@@ -2,7 +2,7 @@
 // World: x east, y north, z altitude (metres); Three.js is y-up, so world (x, y, z) → (x, z, −y).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { sampleRoute, widthAt, liftSpeed, DRAG_LIFTS, buildingShape } from './core.js';
+import { sampleRoute, widthAt, liftSpeed, DRAG_LIFTS, DRAG_ARM, buildingShape } from './core.js';
 
 const v3 = (x, y, z) => new THREE.Vector3(x, z, -y);
 const mat = c => new THREE.MeshLambertMaterial({ color: c });
@@ -12,7 +12,6 @@ const boxAt = (w, h, d, x, y, z) => new THREE.BoxGeometry(w, h, d).translate(x, 
 // Per lift type: tower height, half the gap between the two cable lines, station size [long, wide, tall],
 // carrier spacing (m), and how deep the cable sags (fraction of the span). Carriers move at the lift's
 // real speed (liftSpeed in core.js) in lift time (see update()).
-const DRAG_ARM = 2.5; // how far a drag lift's towers stand beside the track (m)
 const LIFT = {
   chair_lift: { tower: 10, gauge: 2.6, station: [14, 9, 5], every: 30, sag: .025 },
   gondola: { tower: 14, gauge: 3, station: [22, 11, 7], every: 70, sag: .025 },

@@ -1,4 +1,4 @@
-import { prepareRoute, roundCorners, sampleRoute, heightAt, clamp, buildPisteIndex, nearestPiste, createSkier, stepSkier, SKI, ARCADE, seededRandom, liftSpeed, DRAG_LIFTS } from './core.js';
+import { prepareRoute, roundCorners, sampleRoute, heightAt, clamp, buildPisteIndex, nearestPiste, createSkier, stepSkier, SKI, ARCADE, seededRandom, liftSpeed, DRAG_LIFTS, buildingShape, liftTowers, buildObstacles, openPisteLines, hitObstacle } from './core.js';
 import { PALETTES } from './palettes.js';
 import { buildSprites } from './sprites.js';
 import { makeFrame, makeGeometry, drawMasks, GroundTiles, bakeOverview, placeEntities, TILE_M, TILE_MPP, RES } from './world.js';
@@ -226,8 +226,17 @@ const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 const T = resort.terrain;
 const bounds = { x0: T.minX + 20, y0: T.minY + 20, x1: T.minX + (T.cols - 1) * T.stepX - 20, y1: T.minY + (T.rows - 1) * T.stepY - 20 };
 const plazaAt = (x, y) => plazas.find(p => Math.hypot(p.x - x, p.y - y) < p.r);
+const gradient = (x, y) => [(heightAt(T, x + 20, y) - heightAt(T, x - 20, y)) / 40, (heightAt(T, x, y + 20) - heightAt(T, x, y - 20)) / 40];
+// Buildings (and the huts drawn for restaurants mapped only as a point) and lift towers are solid,
+// except buildings a mapped piste runs straight through.
+const obstacles = buildObstacles([
+  ...scenery.buildings,
+  ...scenery.restaurants.filter(r => !scenery.buildings.some(b => Math.hypot(b.x - r.x, b.y - r.y) < 15)).map(r => ({ ...r, area: 150, use: 'shop' })),
+].map(b => buildingShape(b, gradient).ring), lifts.flatMap(liftTowers));
+openPisteLines(obstacles, trails);
 const env = {
-  gradient: (x, y) => [(heightAt(T, x + 20, y) - heightAt(T, x - 20, y)) / 40, (heightAt(T, x, y + 20) - heightAt(T, x, y - 20)) / 40],
+  gradient,
+  obstacle: (ax, ay, bx, by, r) => hitObstacle(obstacles, ax, ay, bx, by, r),
   surface(x, y) {
     const [px, py] = frame.toPx(x, y), o = (Math.floor(py) * frame.w + Math.floor(px)) * 4;
     if (masks[o + 1] > 120) return plazaAt(x, y) ? 'plaza' : 'piste';
@@ -281,8 +290,9 @@ function update(dt) {
     state.input = input; state.simScale = scale;
     // Pushing off on purpose (heading roughly where the skier points, below push speed): the 3D view skates.
     state.pushing = input.dir != null && !input.brake && sk.speed < P.pushMax && Math.cos(wrap(input.dir - sk.heading)) > .5;
-    for (let i = 0; i < steps; i++) stepSkier(sk, input, env, sdt, P);
-    effects(sk, dt * scale);
+    let impact = 0;
+    for (let i = 0; i < steps; i++) { stepSkier(sk, input, env, sdt, P); impact = Math.max(impact, sk.impact); }
+    effects(sk, dt * scale, impact);
     sk.x = clamp(sk.x, bounds.x0, bounds.x1); sk.y = clamp(sk.y, bounds.y0, bounds.y1);
     const alt = heightAt(T, sk.x, sk.y);
     state.target = [sk.x, sk.y]; state.alt = alt;
@@ -351,7 +361,16 @@ function update(dt) {
 const trail = [], spray = [];
 const TRAIL_MAX = 500, TRAIL_LIFE = 12, SPRAY_MAX = 300;
 const rand = Math.random;
-function effects(sk, dt) {
+function effects(sk, dt, impact = 0) {
+  // Hitting a wall or a tower knocks a puff of snow off it and thuds, louder the harder the hit.
+  if (impact > 2) {
+    for (let i = 0; i < Math.min(30, impact * 2); i++) {
+      if (spray.length > SPRAY_MAX) spray.shift();
+      const a = rand() * Math.PI * 2, v = 1 + rand() * impact * .3;
+      spray.push({ x: sk.x, y: sk.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, z: .5 + rand(), vz: 1 + rand() * 3, life: .5 + rand() * .5 });
+    }
+    sound.thud(clamp(impact / 15, .15, 1));
+  }
   const last = trail.at(-1);
   if (!last || Math.hypot(last.x - sk.x, last.y - sk.y) > 1.2) {
     trail.push({ x: sk.x, y: sk.y, h: sk.heading, t: state.t, skid: sk.skid > .5 });
@@ -424,6 +443,15 @@ const sound = (() => {
     toggle() { muted = !muted; try { localStorage.setItem('ski2d.muted', muted ? '1' : '0'); } catch {} if (muted) this.silence(); this.show(); },
     show() { const b = $('mute'); b.innerHTML = speakerIcon(muted) + t(muted ? 'muted' : 'sound'); b.title = t(muted ? 'soundOn' : 'soundOff'); b.classList.toggle('on', muted); },
     silence() { if (ctx) { set(wind.g.gain, 0); set(hiss.g.gain, 0); } },
+    // A short low knock for running into something; v = 0–1 loudness.
+    thud(v) {
+      if (!ctx || muted || ctx.currentTime < (this.lastThud || 0) + .15) return;
+      this.lastThud = ctx.currentTime;
+      const o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime;
+      o.type = 'sine'; o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(45, t0 + .18);
+      g.gain.setValueAtTime(.5 * v, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + .25);
+      o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + .3);
+    },
     update(sk) {
       if (!ctx || muted) return;
       const v = clamp(sk.speed / 30, 0, 1);

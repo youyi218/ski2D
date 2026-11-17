@@ -147,6 +147,7 @@ export const SKI = {
   minGrade: .08, crossSlope: .25,
   tuck: 0, tuckDrag: 1, glide: 0, time: 1,
   grip: 0, skidGrip: 1,
+  wallSlide: .7,      // fraction of the along-the-wall speed kept after hitting a building or tower
 };
 
 // Real line speed of each lift type (m/s). The lifts on the mountain run at this speed in game time;
@@ -217,6 +218,98 @@ function footprintRectangle(b, gradient) {
   return [[-len, -wide], [len, -wide], [len, wide], [-len, wide]].map(([u, v]) => [(u * c - v * s) / 2, (u * s + v * c) / 2]);
 }
 
+// ---------- Obstacles ----------
+// Solid things the skier bumps into: building walls (the same outline the views draw) and lift towers.
+// Stations are left out: skiers pass under their roofs to board.
+export const DRAG_ARM = 2.5; // how far a drag lift's towers stand beside the track (m)
+export const SKIER_RADIUS = .4;
+
+// Where each lift's towers stand (every middle node; a drag lift's DRAG_ARM to the side of the track)
+// and how thick they are, matching the 3D view. Lifts run bottom → top (prepareRoute(l, true)).
+export function liftTowers(l) {
+  if (l.type === 'magic_carpet') return [];
+  const drag = DRAG_LIFTS.has(l.type), w = l.type === 'cable_car' ? 2 : drag ? .35 : .7, P = l.points, out = [];
+  for (let i = 1; i < P.length - 1; i++) {
+    const a = P[i - 1], b = P[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
+    const k = drag ? DRAG_ARM : 0;
+    out.push({ x: P[i][0] + dy / L * k, y: P[i][1] - dx / L * k, r: w / 2 });
+  }
+  return out;
+}
+
+// A grid of obstacles: rings (closed world-space outlines) and towers ({ x, y, r }).
+export function buildObstacles(rings, towers, cell = 50) {
+  const grid = new Map();
+  const put = (o, x0, y0, x1, y1) => {
+    for (let gx = Math.floor((x0 - 1) / cell); gx <= Math.floor((x1 + 1) / cell); gx++)
+      for (let gy = Math.floor((y0 - 1) / cell); gy <= Math.floor((y1 + 1) / cell); gy++) {
+        const k = gx + ',' + gy; (grid.get(k) || grid.set(k, []).get(k)).push(o);
+      }
+  };
+  for (const ring of rings) {
+    if (ring.length < 3) continue;
+    const xs = ring.map(p => p[0]), ys = ring.map(p => p[1]);
+    put({ ring }, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
+  }
+  for (const t of towers) put({ tower: t }, t.x - t.r, t.y - t.r, t.x + t.r, t.y + t.r);
+  return { grid, cell };
+}
+
+// Is the point (x, y) touching an obstacle (other than those in skip)? Returns { o, n } with n the
+// outward normal there, or null.
+function touching(index, x, y, R, skip) {
+  const list = index.grid.get(Math.floor(x / index.cell) + ',' + Math.floor(y / index.cell));
+  for (const o of list || []) {
+    if (skip?.includes(o)) continue;
+    if (o.tower) {
+      const dx = x - o.tower.x, dy = y - o.tower.y, d = Math.hypot(dx, dy);
+      if (d < o.tower.r + R) return { o, n: d > 1e-6 ? [dx / d, dy / d] : [1, 0] };
+      continue;
+    }
+    const ring = o.ring;
+    let inside = false, best = Infinity, cx = 0, cy = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [ax, ay] = ring[j], [bx, by] = ring[i];
+      if ((ay > y) !== (by > y) && x < ax + (bx - ax) * (y - ay) / (by - ay)) inside = !inside;
+      const ex = bx - ax, ey = by - ay, u = clamp(((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1), 0, 1);
+      const px = ax + u * ex, py = ay + u * ey, d = Math.hypot(x - px, y - py);
+      if (d < best) { best = d; cx = px; cy = py; }
+    }
+    if (!inside && best >= R) continue;
+    const s = inside ? -1 : 1, d = best || 1e-6;
+    return { o, n: best > 1e-6 ? [s * (x - cx) / d, s * (y - cy) / d] : [1, 0] };
+  }
+  return null;
+}
+
+// Moving from a to b, the first point that runs into an obstacle (checked every half metre so a fast
+// skier can't pass through a tower): { n, at } with at the last free point, or null. Obstacles the skier
+// already overlaps at a are ignored (some pistes start inside a mapped building), so they can ski out.
+export function hitObstacle(index, ax, ay, bx, by, R = SKIER_RADIUS) {
+  const dx = bx - ax, dy = by - ay, steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / .5));
+  const skip = [];
+  for (let h; (h = touching(index, ax, ay, R, skip));) skip.push(h.o);
+  let fx = ax, fy = ay;
+  for (let i = 1; i <= steps; i++) {
+    const x = ax + dx * i / steps, y = ay + dy * i / steps, h = touching(index, x, y, R, skip);
+    if (h) return { n: h.n, at: [fx, fy] };
+    fx = x; fy = y;
+  }
+  return null;
+}
+
+// Buildings a mapped piste's centreline runs through are left passable: the map line cuts a corner
+// through a village or under a passage, and the run must stay skiable. Returns how many were opened.
+export function openPisteLines(index, routes, step = 2) {
+  const open = new Set();
+  for (const r of routes) for (let d = 0; d <= r.length; d += step) {
+    const [x, y] = sampleRoute(r, d).position;
+    for (let h; (h = touching(index, x, y, 0, [...open])) && h.o.ring;) open.add(h.o);
+  }
+  for (const [k, list] of index.grid) index.grid.set(k, list.filter(o => !open.has(o)));
+  return open.size;
+}
+
 // Arcade feel: snappy carving that keeps speed, less friction, a tuck to go faster, fun powder,
 // and a minimum glide on pistes. The mountain stays real; only the skier cheats.
 export const ARCADE = {
@@ -285,6 +378,17 @@ export function stepSkier(sk, input, env, dt, P = SKI) {
   } else if (Math.hypot(gx, gy) > .03) {
     sk.heading = turnToward(sk.heading, Math.atan2(-gy, -gx), maxTurn * P.fallLine / P.turn[0] * 2);
   }
+  // Hands-off, a building or tower ahead: steer for the nearest clear line either side, as a skier
+  // would, keeping a metre or so clear. Steering is the player's own job.
+  if (!wantsDir && !stranded && env.obstacle) {
+    const look = 4 + sk.speed * .8, clear = a => !env.obstacle(sk.x, sk.y, sk.x + Math.cos(a) * look, sk.y + Math.sin(a) * look, 1.5);
+    if (!clear(sk.heading)) {
+      for (let k = 1; k <= 8; k++) {
+        const a = [sk.heading + k * .2, sk.heading - k * .2].find(clear);
+        if (a !== undefined) { sk.heading = turnToward(sk.heading, a, Math.max(maxTurn, 2 * dt)); break; }
+      }
+    }
+  }
   sk.speed *= 1 - Math.min(.5, Math.abs(wrapAngle(sk.heading - before)) * P.turnLoss * t);
   // On a piste, the slope along it comes from the piste's own altitude profile (sampled at its
   // OSM nodes, finer than the 40 m terrain grid), so mapped descents never read as flat or uphill.
@@ -321,7 +425,18 @@ export function stepSkier(sk, input, env, dt, P = SKI) {
   sk.skid = sk.speed < 2 ? 0 : clamp((input.brake ? 1 : 0) + turnRate * t / 2.5, 0, 1);
   sk.tuck = !!input.tuck && !input.brake;
   const nx = sk.x + hx * sk.speed * dt, ny = sk.y + hy * sk.speed * dt;
-  if (env.blocked?.(nx, ny)) {
+  const hit = env.obstacle?.(sk.x, sk.y, nx, ny);
+  sk.impact = 0;
+  if (hit) {
+    // Hit a wall or a tower: the part of the velocity going into it is lost, the skier slides along it
+    // with what is left (minus some friction) and stops dead on a head-on hit.
+    const [n0, n1] = hit.n, vn = (hx * n0 + hy * n1) * sk.speed;
+    const tx = hx * sk.speed - vn * n0, ty = hy * sk.speed - vn * n1, vt = Math.hypot(tx, ty);
+    sk.impact = -vn;
+    sk.x = hit.at[0]; sk.y = hit.at[1];
+    sk.speed = vt > 1 ? vt * P.wallSlide : 0;
+    if (vt > 1) sk.heading = Math.atan2(ty, tx);
+  } else if (env.blocked?.(nx, ny)) {
     // Domain edge: stop and swing back toward the piste.
     sk.speed = Math.min(sk.speed * .3, 1.5);
     if (g?.point) sk.heading = turnToward(sk.heading, Math.atan2(g.point[1] - sk.y, g.point[0] - sk.x), maxTurn * 3);

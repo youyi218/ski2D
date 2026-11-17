@@ -128,3 +128,32 @@ test('stopped on a plaza between two pistes: hands-off the skier stands still in
   for (let i = 0; i < 60; i++) stepSkier(sk, { dir: Math.PI }, env, 1 / 60); // a key still turns and skates
   assert.ok(sk.heading > 2 && sk.speed > 0);
 });
+
+test('obstacles: a head-on hit stops, a glancing hit slides along the wall, and a skier inside can leave', async () => {
+  const { buildObstacles, hitObstacle, liftTowers } = await import('../src/core.js');
+  const wall = [[-50, 10], [50, 10], [50, 20], [-50, 20]];
+  const obs = buildObstacles([wall], [{ x: 0, y: -30, r: .35 }]);
+  const env = { ...plane, obstacle: (ax, ay, bx, by) => hitObstacle(obs, ax, ay, bx, by) };
+  const head = createSkier(5, 0, Math.PI / 2); head.speed = 15;
+  for (let i = 0; i < 120; i++) stepSkier(head, {}, env, 1 / 60);
+  assert.ok(head.y < 10 && head.y > 9, `stopped at the wall, y=${head.y}`);
+  const glance = createSkier(-20, 0, Math.atan2(1, 2)); glance.speed = 15;
+  stepSkier(glance, {}, { ...env, gradient: () => [0, 0] }, 1);
+  for (let i = 0; i < 60; i++) stepSkier(glance, { dir: Math.atan2(1, 2) }, { ...env, gradient: () => [0, 0] }, 1 / 60);
+  assert.ok(glance.y < 10 && glance.x > -20 && glance.speed > 0, 'slides along the wall');
+  assert.ok(hitObstacle(obs, 0, 15, 0, 25) === null, 'walking out of a building is allowed');
+  assert.ok(hitObstacle(obs, 0, -40, 0, -20), 'a fast step cannot pass through a tower');
+  const drag = liftTowers({ type: 't-bar', points: [[0, 0, 0], [0, 100, 50], [0, 200, 100]] });
+  assert.deepEqual(drag.map(t => [t.x, t.y]), [[2.5, 100]]);
+});
+
+test('obstacles: hands-off skiing steers round a tower on the line, and a skier starting inside a building skis out', async () => {
+  const { buildObstacles, hitObstacle } = await import('../src/core.js');
+  const obs = buildObstacles([[[-5, -5], [5, -5], [5, 5], [-5, 5]]], [{ x: 0, y: 40, r: 1 }]);
+  const env = { ...plane, obstacle: (ax, ay, bx, by, r) => hitObstacle(obs, ax, ay, bx, by, r) };
+  const sk = createSkier(0, 0, Math.PI / 2); sk.speed = 8;
+  let hit = 0;
+  for (let i = 0; i < 600; i++) { stepSkier(sk, {}, env, 1 / 60); hit = Math.max(hit, sk.impact); }
+  assert.ok(sk.y > 60, `got past, y=${sk.y}`);
+  assert.equal(hit, 0, 'never touched the tower');
+});
