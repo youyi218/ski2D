@@ -33,7 +33,8 @@ app.innerHTML = `
   <div class="panel" id="panel"></div>
   <div class="hints" id="hints"></div>
   <div class="bigmap" id="bigmap" hidden><canvas id="bigmapCanvas"></canvas>
-    <div class="bigmap-bar"><b>${R.title}</b><span>${t('mapHelp')}</span><button id="mapMe">${t('mapMe')}</button><button id="mapClose">${t('mapClose')}</button></div></div>`;
+    <div class="bigmap-bar"><b>${R.title}</b><span>${t('mapHelp')}</span><button id="mapMe">${t('mapMe')}</button><button id="mapClose">${t('mapClose')}</button></div>
+    <div class="drop-dock" id="dropDock"><span class="pin"><img alt=""></span><span>${t('mapDrop')}</span></div></div>`;
 const view = document.getElementById('view'), vctx = view.getContext('2d');
 const mini = document.getElementById('minimap'), mctx = mini.getContext('2d');
 const low = document.createElement('canvas'), lctx = low.getContext('2d');
@@ -113,7 +114,10 @@ function chip(diff) { return `<i class="dot" style="background:${pal.trail[diff]
 
 function startAt(route, d = 3) {
   const { position: p, tangent } = sampleRoute(route, d);
-  state.skier = createSkier(p[0], p[1], Math.atan2(tangent[1], tangent[0]));
+  startSkiing(p[0], p[1], Math.atan2(tangent[1], tangent[0]));
+}
+function startSkiing(x, y, heading) {
+  state.skier = createSkier(x, y, heading);
   state.skier.speed = state.feel === 'arcade' ? 6 : 3;
   trail.length = 0;
   state.mode = 'ski'; state.lift = null; state.liftCooldown = state.t + 2; state.resumeMode = null; state.radarH = null;
@@ -135,6 +139,7 @@ function showMenu() {
     <div class="resorts">${Object.entries(RESORTS).map(([id, r]) => `<a href="?resort=${id}" class="${id === resortId ? 'on' : ''}">${r.title}<small>${r.place.split(' · ')[1]}</small></a>`).join('')}</div>
     ${state.resumeMode ? `<button data-resume class="resume">${t('resume')}<small>${t('resumeSub')}</small></button>` : ''}
     <p>${t('intro')}</p>
+    <button id="pickOnMap" class="resume">${t('pickOnMap')}<small>${t('pickOnMapSub')}</small></button>
     <div class="feel"><button data-feel="arcade" class="${state.feel === 'arcade' ? 'on' : ''}">${t('arcade')}<small>${t('arcadeSub')}</small></button><button data-feel="real" class="${state.feel === 'real' ? 'on' : ''}">${t('real')}<small>${t('realSub')}</small></button></div>
     <label class="scale" ${state.feel === 'arcade' ? 'hidden' : ''}>${t('timeScale')} <input id="scale" type="range" min="${SCALE.min}" max="${SCALE.max}" step="${SCALE.step}" value="${state.timeScale}"> <b id="scaleOut">${state.timeScale.toFixed(1)}×</b><small>${t('timeScaleSub', { n: SCALE.shift })}</small></label>
     <input id="search" class="search" type="search" placeholder="${t('search')}" autocomplete="off" spellcheck="false">
@@ -183,6 +188,7 @@ app.addEventListener('click', e => {
   else if ('resume' in b.dataset) resume();
   else if (b.id === 'mapClose') closeMap();
   else if (b.id === 'mapMe') centreMapOnMe();
+  else if (b.id === 'pickOnMap') openMap();
   b.blur();
 });
 addEventListener('keydown', e => {
@@ -820,6 +826,7 @@ const big = { open: false, cx: 0, cy: 0, z: 1, fit: 1, drag: null };
 const bigCanvas = $('bigmapCanvas'), bctx = bigCanvas.getContext('2d');
 function openMap() {
   big.open = true; $('bigmap').hidden = false;
+  $('dropDock').querySelector('img').src = skierImage(3);
   big.z = big.fit = Math.min(innerWidth * .94 / frame.w, (innerHeight - 80) * .94 / frame.h);
   big.cx = frame.w / 2; big.cy = frame.h / 2 + 30 / big.z;
   drawBigMap();
@@ -840,7 +847,7 @@ function drawBigMap() {
   g.save(); g.translate(sx(0), sy(0)); g.scale(big.z, big.z);
   g.imageSmoothingEnabled = big.z * frame.w < base.width; // smooth only when shrinking
   g.drawImage(base, 0, 0, frame.w, frame.h);
-  strokeRoutes(g, big.z, state.mode === 'lift' ? state.lift : state.here?.route);
+  strokeRoutes(g, big.z, big.pick ? big.pick.route : state.mode === 'lift' ? state.lift : state.here?.route);
   g.restore();
   // Names: lifts first, then the longest pistes, skipping any that would overlap one already placed.
   g.font = '600 12px "Pixelify Sans", ui-rounded, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -858,6 +865,11 @@ function drawBigMap() {
     g.beginPath(); g.roundRect(...box, 5); g.fill(); g.stroke();
     if (r.difficulty) { g.fillStyle = pal.trail[r.difficulty]; g.fillRect(box[0] + 4, y - 4, 4, 8); }
     g.fillStyle = pal.uiInk; g.fillText(text, x + (r.difficulty ? 3 : 0), y + 1);
+  }
+  if (big.pick) { // where the dragged skier will start
+    const [px, py] = frame.toPx(...big.pick.at);
+    g.fillStyle = pal.uiAccent; g.strokeStyle = pal.ink; g.lineWidth = 2;
+    g.beginPath(); g.arc(sx(px), sy(py), 5, 0, Math.PI * 2); g.fill(); g.stroke();
   }
   if (state.mode !== 'menu' || state.resumeMode) {
     const [px, py] = frame.toPx(...state.target), hd = state.view === '3d' && view3d ? view3d.heading : state.radarH ?? Math.PI / 2;
@@ -884,6 +896,60 @@ bigCanvas.addEventListener('pointermove', e => {
 });
 bigCanvas.addEventListener('pointerup', () => { big.drag = null; });
 addEventListener('resize', () => { if (big.open) drawBigMap(); });
+
+// ---------- Drop a skier on the map to start anywhere on a piste ----------
+// The skier sprite, scaled up crisply, as an image URL.
+function skierImage(k) {
+  const spr = sprites.skier, c = document.createElement('canvas');
+  c.width = spr.width * k; c.height = spr.height * k;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(spr, 0, 0, c.width, c.height);
+  return c.toDataURL();
+}
+// A drop at screen point (x, y) counts when it lands on a piste: on the painted piste surface, or within
+// a few screen pixels of a piste line (thin pistes are a pixel wide on the zoomed-out map). It starts on
+// the spot when that is piste, else on the nearest centreline, facing down that piste.
+const DROP_SLACK_PX = 8;
+function pickAt(x, y) {
+  const [wx, wy] = frame.toWorld(big.cx + (x - innerWidth / 2) / big.z, big.cy + (y - innerHeight / 2) / big.z);
+  if (env.blocked(wx, wy)) return null;
+  const g = env.guide(wx, wy); if (!g) return null;
+  const onPiste = env.surface(wx, wy) !== 'snow' && env.surface(wx, wy) !== 'forest';
+  const near = g.dist <= g.width / 2 + DROP_SLACK_PX * RES / big.z;
+  if (!near && !(onPiste && g.dist < 80)) return null;
+  const d = clamp(g.d, 0, Math.max(0, g.route.length - 5));
+  const at = near && !onPiste ? sampleRoute(g.route, d).position.slice(0, 2) : [wx, wy];
+  // Face along the piste, whichever way along it goes downhill here.
+  const [gx, gy] = env.gradient(...at), flip = g.tangent[0] * gx + g.tangent[1] * gy > 0 ? -1 : 1;
+  return { route: g.route, d, at, heading: Math.atan2(flip * g.tangent[1], flip * g.tangent[0]) };
+}
+const dock = $('dropDock');
+let ghost = null, tip = null;
+dock.addEventListener('pointerdown', e => {
+  e.preventDefault(); dock.setPointerCapture(e.pointerId); dock.classList.add('dragging');
+  ghost = Object.assign(document.createElement('img'), { className: 'drop-ghost', src: skierImage(4) });
+  tip = Object.assign(document.createElement('div'), { className: 'drop-tip' });
+  $('bigmap').append(ghost, tip);
+  moveDrop(e);
+});
+function moveDrop(e) {
+  if (!ghost) return;
+  ghost.style.left = tip.style.left = e.clientX + 'px'; ghost.style.top = tip.style.top = e.clientY + 'px';
+  big.pick = pickAt(e.clientX, e.clientY);
+  tip.textContent = big.pick ? t('mapDropHere', { name: label(big.pick.route) }) : t('mapDropNo');
+  tip.classList.toggle('no', !big.pick);
+  drawBigMap();
+}
+dock.addEventListener('pointermove', moveDrop);
+function endDrop(e, cancel) {
+  if (!ghost) return;
+  const pick = cancel ? null : pickAt(e.clientX, e.clientY);
+  ghost.remove(); tip.remove(); ghost = tip = null; big.pick = null; dock.classList.remove('dragging');
+  if (!pick) { drawBigMap(); return; }
+  closeMap();
+  startSkiing(pick.at[0], pick.at[1], pick.heading);
+}
+dock.addEventListener('pointerup', e => endDrop(e));
+dock.addEventListener('pointercancel', e => endDrop(e, true));
 
 function drawOverview() {
   const w = miniBase.width, h = miniBase.height, k = w / frame.w;

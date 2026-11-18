@@ -93,6 +93,11 @@ const STR = {
   minimapTitle: { zh: '点开大地图（Tab）', en: 'Open the resort map (Tab)', fr: 'Ouvrir le plan (Tab)' },
   mapHelp: { zh: '滚轮缩放 · 拖动平移', en: 'Scroll to zoom · drag to move', fr: 'Molette pour zoomer · glisser pour déplacer' },
   mapMe: { zh: '定位到我', en: 'Find me', fr: 'Me trouver' },
+  mapDrop: { zh: '把小人拖到雪道上，从那里开始滑', en: 'Drag me onto a piste to start there', fr: 'Glissez-moi sur une piste pour partir de là' },
+  mapDropHere: { zh: '松手从这里开始：{name}', en: 'Let go to start here: {name}', fr: 'Lâchez pour partir d’ici : {name}' },
+  mapDropNo: { zh: '这里没有雪道', en: 'No piste here', fr: 'Pas de piste ici' },
+  pickOnMap: { zh: '🗺 在地图上选起点', en: '🗺 Pick a start on the map', fr: '🗺 Choisir le départ sur le plan' },
+  pickOnMapSub: { zh: '拖一个小人到任意雪道上', en: 'drag a skier onto any piste', fr: 'glissez un skieur sur n’importe quelle piste' },
   mapClose: { zh: '✕ 关闭（Tab）', en: '✕ Close (Tab)', fr: '✕ Fermer (Tab)' },
 
   // Key hints along the bottom.
